@@ -1,0 +1,1 @@
+from crystal_diffusers.pipelines.mattergen.pipeline_mattergen import MatterGenPipeline

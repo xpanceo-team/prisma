@@ -1,0 +1,16 @@
+defaults:
+  - _self_
+  - checkpoints: default
+  - module: default
+  - optimization: default
+  - regularization: default
+  - reproducibility: default
+  - trainer: default
+
+
+from_checkpoint:
+change_lr:
+strategy:
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  find_unused_parameters: True
+  static_graph: True

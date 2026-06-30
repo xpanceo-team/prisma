@@ -1,0 +1,8 @@
+_target_: crystal_diffusers.schedulers.scheduling_vesde.VarianceExplodingScheduler
+num_train_timesteps: 1000
+sigma_max: 5.0
+sigma_min: 0.01
+signal_to_noise_ratio: 0.4
+max_cell_offset: 3
+max_num_atoms: null
+drop_sigma_min: true

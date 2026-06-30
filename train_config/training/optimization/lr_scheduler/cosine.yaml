@@ -1,0 +1,10 @@
+use_lr_scheduler: True
+config:
+  scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    T_max: 1000
+    eta_min: 1e-6
+    last_epoch: -1
+    verbose: False
+  interval: step
+  frequency: 1

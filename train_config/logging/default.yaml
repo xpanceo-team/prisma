@@ -1,0 +1,27 @@
+# log frequency
+log_every_n_steps: 1
+
+# val_check_interval will be min of these
+val_check_every_n_steps: 512
+val_check_per_epoch: 1
+
+progress_bar_refresh_rate: 20
+
+wandb:
+  project: crystal-diffusers
+  name: ${expname}
+  group: ${expgroup}
+  tags: ${core.tags}
+  entity: null
+  log_model: False
+  mode: 'online'
+  id:
+  resume:
+
+wandb_watch:
+  log:
+  log_freq: 500
+
+lr_monitor:
+  logging_interval: epoch
+  log_momentum: False

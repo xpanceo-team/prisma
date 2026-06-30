@@ -1,0 +1,144 @@
+common_params:
+  kppa: 1000
+
+REL_1:
+  SYSTEM: relax_1
+  NSW: 100
+  IBRION: 2
+  ISIF: 3
+  PREC: Accurate
+  ALGO: Fast
+  ENCUT: 600
+  EDIFF: 0.001
+  ISMEAR: 0
+  SIGMA: 0.05
+  LCHARG: .FALSE.
+  LWAVE: .FALSE.
+  NPAR: 8
+  KSPACING: 0.314
+  # ISPIN: 2
+  LVDW: True
+  IVDW : 11
+
+REL_2:
+  SYSTEM : relax_2
+  NSW : 100
+  IBRION : 2
+  ISIF : 3
+  PREC : Accurate
+  ALGO : Fast
+  ENCUT : 600
+  EDIFF : 1E-5
+  ISMEAR : 0
+  SIGMA : 0.05
+  LCHARG : .FALSE.
+  LWAVE : .FALSE.
+  NPAR : 8
+  KSPACING : 0.314
+  # ISPIN: 2
+  LVDW: True
+  IVDW : 11
+
+REL_3:
+  SYSTEM : relax_3
+  NSW : 100
+  IBRION : 2
+  ISIF : 3
+  PREC : Accurate
+  ALGO : Normal
+  ENCUT : 600
+  EDIFF : 1E-7
+  ISMEAR : 0
+  SIGMA : 0.05
+  LCHARG : .FALSE.
+  LWAVE : .FALSE.
+  NPAR : 8
+  KSPACING : 0.314
+  # ISPIN: 2
+  LVDW: True
+  IVDW : 11
+
+SCF:
+  SYSTEM : scf
+  ALGO: Fast
+  IBRION: 1
+  ISMEAR: 0
+  NSW: 0
+  NELM: 100
+  SIGMA: 0.05
+  EDIFF: 1E-6
+  LREAL: Auto
+  PREC: Accurate
+  SYMPREC: 1E-8
+  ENCUT: 500
+  NPAR : 8
+  KSPACING: 0.314
+  # ISPIN: 2
+  LVDW: True
+  IVDW: 11
+
+IPA:
+  SYSTEM : ipa
+  ALGO: Fast
+  LOPTICS: True
+  CSHIFT: 0.1
+  NEDOS: 5000
+  ISMEAR: 0
+  SIGMA: 0.05
+  PREC: Accurate
+  EDIFF: 1E-6
+  ENCUT: 500
+  NBANDS: 1024
+  SYMPREC: 1E-8
+  NPAR : 8
+  KSPACING: 0.314
+  LORBIT : 11
+  ICHARG: 11
+  # ISPIN: 2
+  LVDW: True
+  IVDW: 11
+
+
+DOS:
+  SYSTEM : dos
+  ALGO : Fast
+  PREC : Accurate
+  NPAR : 8
+  ENCUT : 500
+  EDIFF : 1e-6
+  NSW : 0
+  ISMEAR : 0
+  SIGMA : 0.05
+  ISTART : 0
+  LCHARG : FALSE
+  LWAVE : FALSE
+  KSPACING : 0.314
+  SYMPREC: 1E-8
+  NEDOS : 5000
+  LORBIT : 11
+  ICHARG: 11
+  # ISPIN: 2
+  LVDW: True
+  IVDW : 11
+
+BANDS:
+  SYSTEM : bands
+  PREC : Accurate
+  ALGO: Fast
+  NPAR : 8
+  ENCUT : 500
+  EDIFF : 1e-8
+  NSW : 0
+  ISMEAR : 0
+  SIGMA : 0.05
+  ISTART : 0
+  LCHARG : FALSE
+  LWAVE : FALSE
+  NEDOS : 5000
+  NBANDS : 1024
+  SYMPREC: 1E-8
+  LORBIT : 11
+  ICHARG: 11
+  # ISPIN: 2
+  LVDW: True
+  IVDW : 11

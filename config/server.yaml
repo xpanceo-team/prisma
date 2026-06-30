@@ -1,0 +1,90 @@
+REL_1:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+REL_2:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+REL_3:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+SCF:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+IPA:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+BANDS:
+  vasp:
+    n_cpus: 72
+    n_nodes: 3
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30
+
+DOS:
+  vasp:
+    n_cpus: 48
+    n_nodes: 2
+    max_duration: "06:00:00"
+    cluster_part: "mpi"
+    unavailable_nodes:
+    is_exclusive : True
+
+  monitor:
+    timeout_seconds: 36000
+    check_interval: 30

@@ -1,0 +1,22 @@
+expgroup: test
+expname: ${expgroup}_${now:%m-%d_%H-%M}
+
+core:
+  version: ${version:}
+  tags:
+    - ${expgroup}
+    - Year=${now:%Y}
+    - Month=${now:%m}
+    - Day=${now:%d}
+    - dataset=${data.dataset_name}
+    - lr=${training.optimization.optimizer.lr}
+    - effective_batch_size=${training.optimization.effective_batch_size}
+
+defaults:
+  - _self_
+  - data: default
+  - hydra: default
+  - logging: default
+  - training: default
+  - model: default
+  - diffusion: default

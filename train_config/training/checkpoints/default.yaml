@@ -1,0 +1,19 @@
+every_n_epochs: 0
+save_last: True
+metric_checkpoints:
+  - metric_name: loss
+    params:
+      monitor: ${..metric_name}/val
+      mode: min
+#  - metric_name: mean_embedding_l2_distance
+#    params:
+#      monitor: ${..metric_name}
+#      mode: min
+#    callback:
+#      _target_: crystal_diffusers.training.callbacks.EmbeddingL2MetricCallback
+#      _partial_: True
+#      every_n_epochs: 5
+#      batch_size: 32
+#      guidance_scale: 3.0
+#      mace_checkpoint: "MACE/2023-12-03-mace-mp/2023-12-03-mace-mp.model"
+#      random_seed: ${training.reproducibility.random_seed}

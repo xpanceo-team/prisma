@@ -1,0 +1,16 @@
+use_lr_scheduler: True
+config:
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: min
+    factor: 0.6
+    patience: 100
+    threshold: 0.0
+    threshold_mode: rel
+    cooldown: 0
+    min_lr: 1e-6
+    eps: 1e-08
+  interval: epoch
+  frequency: 1
+  monitor: loss/train/epoch
+  strict: True

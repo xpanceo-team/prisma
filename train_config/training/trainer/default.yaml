@@ -1,0 +1,14 @@
+default_root_dir: ${hydra:run.dir}
+accelerator: gpu
+deterministic: ${training.reproducibility.deterministic_trainer}
+log_every_n_steps: ${logging.log_every_n_steps}
+devices: 1
+precision: 32
+max_epochs: 1000
+accumulate_grad_batches: 4
+num_sanity_val_steps: 2
+gradient_clip_val: 0.5
+gradient_clip_algorithm: value
+overfit_batches: 0.0
+#profiler: pytorch
+#profiler: simple

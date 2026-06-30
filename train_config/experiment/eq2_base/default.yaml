@@ -1,0 +1,27 @@
+# @package _global_
+
+expgroup: base_eq2
+
+model:
+  gnn:
+    # Keep the canonical Equiformer config large/checkpoint-compatible and
+    # make the default training preset smaller here at the experiment layer.
+    num_layers: 12
+    sphere_channels: 96
+    atom_emb_dim: 96
+    edge_channels: 96
+    edge_emb_dim: 96
+    attn_hidden_channels: 48
+    attn_alpha_channels: 48
+    attn_value_channels: 12
+    ffn_hidden_channels: 96
+
+training:
+  optimization:
+    batch_size: 8
+  trainer:
+    accumulate_grad_batches: 2
+
+defaults:
+  - override /model/gnn: equiformer_v2
+  - _self_

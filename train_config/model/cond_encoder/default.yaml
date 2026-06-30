@@ -1,0 +1,26 @@
+_target_: crystal_diffusers.models.cond_encoder.ConditionEncoder
+t_emb_dim: 512
+condition_dim: 512
+dropout: 0.1
+scale_t_emb: 0.001
+bias_t_emb: 0.001
+condition: {}
+#  formula:
+#    condition_type: adapter
+#    encoding_type: chemical_system
+#    input_dim: 100
+#  space_group:
+#    condition_type: adapter
+#    encoding_type: space_group
+#  atlas_embedding:
+#    condition_type: adapter
+#    encoding_type: vector
+#    input_dim: 256
+#  dn:
+#    condition_type: adapter
+#    encoding_type: sinusoidal
+#    scale: true
+#  zero_k_1064:
+#    condition_type: adapter
+#    encoding_type: categorical
+#    num_categories: 2

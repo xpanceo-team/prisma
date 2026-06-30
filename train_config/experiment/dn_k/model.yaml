@@ -1,0 +1,21 @@
+# @package model
+
+cond_encoder:
+  dropout: 0.2
+  freeze_except_new: False
+  condition:
+    dn:
+      condition_type: adapter
+      encoding_type: sinusoidal
+      scale: true
+    k_1064:
+      condition_type: adapter
+      encoding_type: sinusoidal
+      scale: true
+
+gnn:
+  freeze_except_new: False
+
+score_model:
+  freeze_except_new: False
+

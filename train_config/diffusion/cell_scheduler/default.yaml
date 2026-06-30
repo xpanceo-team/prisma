@@ -1,0 +1,8 @@
+_target_: crystal_diffusers.schedulers.scheduling_vpsde.VariancePreservingScheduler
+num_train_timesteps: 1000
+beta_start: 0.0001
+beta_end: 0.02
+beta_schedule: "from_sde"
+signal_to_noise_ratio: 0.2
+prior_mean_std_ratio: 5.175293387433388
+inverse_average_density: 17.326663375982235

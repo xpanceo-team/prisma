@@ -1,0 +1,29 @@
+# @package _global_
+
+expgroup: base_pet
+
+model:
+  gnn:
+    cutoff: 7.0
+    max_neighbors: 50
+    graph_max_neighbors: 384
+    use_adaptive_neighbors: false
+    atom_emb_dim: 1280
+    edge_emb_dim: 320
+    head_dim: 320
+    feedforward_dim: 640
+
+training:
+  optimization:
+    batch_size: 128
+    lr_scheduler:
+      config:
+        scheduler:
+          patience: 30
+        monitor: loss/val
+  trainer:
+    accumulate_grad_batches: 4
+
+defaults:
+  - override /model/gnn: pet
+  - _self_

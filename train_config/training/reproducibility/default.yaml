@@ -1,0 +1,3 @@
+deterministic_trainer: False
+seed_everything: True
+random_seed: 42

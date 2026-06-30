@@ -1,0 +1,7 @@
+_target_: crystal_diffusers.models.mattergen.modeling_mattergen.MatterGenModel
+max_atomic_number: ${model.gnn.max_atomic_number}
+atom_emb_dim: ${model.gnn.atom_emb_dim}
+edge_emb_dim: ${model.gnn.edge_emb_dim}
+edge_emb_with_lattice_angles: True
+num_edge_blocks: 5
+original_lattice_update: ${model.gnn.original_lattice_update}

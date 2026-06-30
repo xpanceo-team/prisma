@@ -1,0 +1,21 @@
+# @package _global_
+
+expgroup: optical-anisotropy
+
+data:
+  dataset_name: atom-int-team/optical-anisotropy
+
+#training:
+#  optimization:
+#    optimizer:
+#      lr: 1e-5
+
+defaults:
+#  - /model/finetune
+  - ./model          # merges into cfg.model because of the @package directive
+#  - /training/finetune
+#  - /diffusion/finetune
+  - override /training: finetune
+  - override /diffusion: finetune
+  - override /model: finetune
+  - _self_

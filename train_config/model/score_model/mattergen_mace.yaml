@@ -1,0 +1,14 @@
+instance:
+  _target_: crystal_diffusers.models.mattergen.modeling_mattergen.MACEMatterGenModel
+  config: ${..config}
+
+config:
+  _target_: crystal_diffusers.models.mattergen.configuration_mattergen.MatterGenConfig
+  max_atomic_number: 100
+  gnn_params: ${..gnn}
+
+data_cls: crystal_diffusers.data.MACEStructureData
+
+defaults:
+  - _self_
+  - gnn: MACE

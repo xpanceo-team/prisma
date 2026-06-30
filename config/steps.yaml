@@ -1,0 +1,19 @@
+dependencies :
+    REL_1: null
+    REL_2: REL_1
+    REL_3: REL_2
+    SCF: REL_3
+    IPA: SCF
+    DOS: SCF
+    BANDS: SCF
+
+steps: [REL_1, REL_2, REL_3, SCF, IPA, DOS, BANDS]
+
+type:
+  REL_1: REL
+  REL_2: REL
+  REL_3: REL
+  SCF: SCF
+  IPA: IPA
+  DOS: DOS
+  BANDS: BANDS

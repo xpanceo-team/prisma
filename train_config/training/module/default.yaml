@@ -1,0 +1,7 @@
+_target_: crystal_diffusers.training.module.TrainingModule
+_recursive_: False
+
+model: ${model}
+diffusion: ${diffusion}
+optimization: ${training.optimization}
+

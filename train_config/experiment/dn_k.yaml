@@ -1,0 +1,5 @@
+# @package _global_
+
+# delegates the option to the folder
+defaults:
+  - dn_k/default

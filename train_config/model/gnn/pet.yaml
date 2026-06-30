@@ -1,0 +1,17 @@
+_target_: crystal_diffusers.models.gnns.pet.PETWrapper
+# PET wrapper defaults. These are PET-MAD-inspired values, not an exact PET-MAD reproduction.
+num_blocks: 3
+# PET-MAD-S v1.5.0 used an 8 A cutoff.
+cutoff: 8.0
+# PET adaptive-neighbor runs often target 16 neighbors per atom.
+max_neighbors: 16
+# Candidate graph cap before optional PET adaptive pruning.
+graph_max_neighbors: 256
+atom_emb_dim: 1024
+edge_emb_dim: 256
+head_dim: 256
+feedforward_dim: 512
+num_attention_layers: 1
+featurizer_type: feedforward
+max_atomic_number: 100
+original_lattice_update: true

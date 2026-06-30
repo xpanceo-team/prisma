@@ -1,0 +1,13 @@
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1e-4
+  betas: [ 0.9, 0.999 ]
+  eps: 1e-08
+  weight_decay: ${training.regularization.weight_decay}
+
+batch_size: 128
+effective_batch_size: ${effective_batch_size:${data.batch_size},${training.trainer.accumulate_grad_batches},${training.trainer.devices}}
+
+
+defaults:
+  - lr_scheduler: without

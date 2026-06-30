@@ -1,0 +1,10 @@
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-4
+  
+batch_size: 128
+effective_batch_size: ${effective_batch_size:${data.batch_size},${training.trainer.accumulate_grad_batches},${training.trainer.devices}}
+
+
+defaults:
+  - lr_scheduler: reduce_on_plateau

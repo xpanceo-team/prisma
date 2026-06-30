@@ -1,0 +1,34 @@
+_target_: crystal_diffusers.models.gnns.gemnet.GemNetTWrapper
+t_emb_dim: 512
+condition_keys: []
+num_blocks: 4
+cutoff: 7.0
+max_neighbors: 50
+num_spherical: 7
+num_radial: 128
+atom_emb_dim: 512
+edge_emb_dim: 512
+emb_size_trip: 64
+emb_size_rbf: 16
+emb_size_cbf: 16
+emb_size_bil_trip: 64
+num_before_skip: 1
+num_after_skip: 2
+num_concat: 1
+num_atom: 3
+regress_forces: true
+direct_forces: true
+rbf:
+  name: gaussian
+envelope:
+  name: polynomial
+  exponent: 5
+cbf:
+  name: spherical_harmonics
+extensive: false
+use_pbc: true
+output_init: HeOrthogonal
+activation: swish
+max_atomic_number: 100
+original_lattice_update: true
+scale_file: null

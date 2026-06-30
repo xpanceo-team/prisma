@@ -1,0 +1,39 @@
+cond_encoder:
+  _target_: crystal_diffusers.models.cond_encoder.ConditionEncoder.from_pretrained
+  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  subfolder: condition_encoder
+  dropout: 0.2
+  condition:
+#    atlas_embedding:
+#      condition_type: adapter
+#      encoding_type: vector
+#      input_dim: 256
+#    dn:
+#      condition_type: adapter
+#      encoding_type: sinusoidal
+#      scale: true
+#    zero_k_755:
+#      condition_type: adapter
+#      encoding_type: categorical
+#      num_categories: 2
+#    zero_k_1064:
+#      condition_type: adapter
+#      encoding_type: categorical
+#      num_categories: 2
+#    zero_k_1500:
+#      condition_type: adapter
+#      encoding_type: categorical
+#      num_categories: 2
+  freeze_except_new: True
+
+gnn:
+  _target_: crystal_diffusers.models.gnns.gemnet.GemNetTWrapper.from_pretrained
+  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  subfolder: gnn
+  freeze_except_new: True
+
+score_model:
+  _target_: crystal_diffusers.models.mattergen.modeling_mattergen.MatterGenModel.from_pretrained
+  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  subfolder: score_model
+  freeze_except_new: True

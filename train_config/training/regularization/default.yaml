@@ -1,0 +1,7 @@
+early_stopping:
+  monitor: loss/val
+  mode: min
+  patience: ${multiply:5,${logging.val_check_per_epoch}}
+  verbose: False
+
+weight_decay: 0.01

@@ -1,0 +1,10 @@
+_target_: crystal_diffusers.training.datamodule.DataModule
+_recursive_: False
+dataset_name: atom-int-team/mp-20
+dataset_subset:
+revision:
+data_cls: crystal_diffusers.data.StructureData
+condition: ${model.cond_encoder.condition}
+persistent_workers: False
+num_workers: 8
+batch_size: ${training.optimization.batch_size}
