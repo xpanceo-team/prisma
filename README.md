@@ -6,7 +6,7 @@ It integrates diffusion-based generative modeling, fast ML screening, and automa
 
 The Python API is organized into two packages:
 
-- `crystal_diffusers`: diffusion-based crystal generation, training, sampling, ML screening, and validation utilities.
+- `prisma`: diffusion-based crystal generation, training, sampling, ML screening, and validation utilities.
 - `vaspoperator`: automated VASP/DFT validation backend for SLURM-managed HPC environments.
 
 ## Workflow
@@ -29,7 +29,7 @@ prisma/
 |-- notebooks/                 # Generation and validation examples
 |-- scripts/                   # Training, fine-tuning, and development scripts
 |-- src/
-|   |-- crystal_diffusers/     # Generation, training, pipelines, models, ML validation
+|   |-- prisma/                 # Generation, training, pipelines, models, ML validation
 |   `-- vaspoperator/          # Automated DFT/VASP/SLURM validation backend
 |-- tests/                     # Unit tests
 |-- train_config/              # Hydra training configurations
@@ -39,29 +39,33 @@ prisma/
 
 ## Installation
 
-Install PyTorch and PyTorch Geometric packages for your CUDA stack first. For CUDA 12.1, for example:
+PRISMA requires Python 3.11 or later. Install PyTorch and the compiled PyTorch
+Geometric extensions for the target platform before installing PRISMA. The
+following configuration is validated for CUDA 12.4:
 
 ```bash
-pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu121
-pip install torch_geometric
-pip install torch-scatter torch-sparse -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+python -m pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+python -m pip install torch-scatter==2.1.2 torch-sparse==0.6.18 -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
 ```
 
-Then install PRISMA from the repository root:
+Install PRISMA and its remaining dependencies from the repository root:
 
 ```bash
-pip install -e .
+python -m pip install .
 ```
 
-Optional model dependencies used by some generation and screening workflows can be installed as needed. Install these packages in order:
+Optional validation dependencies, including MatterSim and MACE, can be
+installed with:
 
 ```bash
-pip install mace-torch==0.3.9
-pip install e3nn==0.5.0
-pip install accelerate
+python -m pip install ".[validation]"
 ```
 
-The repository also includes `env.yml` as a Conda environment reference.
+PET models require their metatensor runtime:
+
+```bash
+python -m pip install ".[pet]"
+```
 
 ## Optional DFT Install
 
@@ -99,7 +103,7 @@ Load a MatterGen-compatible pipeline and generate structures:
 ```python
 import torch
 
-from crystal_diffusers.pipelines.mattergen import MatterGenPipeline
+from prisma.pipelines.mattergen import MatterGenPipeline
 
 
 pipeline = MatterGenPipeline.from_pretrained(
@@ -145,8 +149,8 @@ python ./scripts/resume_training.py
 After training, a checkpoint can be converted into a generation pipeline:
 
 ```python
-from crystal_diffusers.pipelines.mattergen.pipeline_mattergen import MatterGenPipeline
-from crystal_diffusers.training.module import TrainingModule
+from prisma.pipelines.mattergen.pipeline_mattergen import MatterGenPipeline
+from prisma.training.module import TrainingModule
 
 
 save_directory = "runs/example/"
@@ -208,10 +212,10 @@ The DFT backend writes VASP work directories under `data/vasp/` and result table
 
 ## Package Modules
 
-- `crystal_diffusers.models` and `crystal_diffusers.schedulers` provide neural-network backbones, output heads, condition encoders, and diffusion schedulers for crystal generation.
-- `crystal_diffusers.pipelines` exposes operational generation interfaces, including MatterGen-compatible pipelines.
-- `crystal_diffusers.training` contains training modules and optimization workflows.
-- `crystal_diffusers.evaluation` and `crystal_diffusers.validation` contain generated-structure assessment and ML validation utilities.
+- `prisma.models` and `prisma.schedulers` provide neural-network backbones, output heads, condition encoders, and diffusion schedulers for crystal generation.
+- `prisma.pipelines` exposes operational generation interfaces, including MatterGen-compatible pipelines.
+- `prisma.training` contains training modules and optimization workflows.
+- `prisma.evaluation` and `prisma.validation` contain generated-structure assessment and ML validation utilities.
 - `vaspoperator.calculation`, `vaspoperator.input`, `vaspoperator.slurm`, and `vaspoperator.pipelines` provide automated VASP input generation, SLURM scheduling, monitoring, and result processing.
 
 ## License

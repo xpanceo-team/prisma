@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.models.gnns.equiformer_v2.EquiformerV2Wrapper
+_target_: prisma.models.gnns.equiformer_v2.EquiformerV2Wrapper
 # Set both fields if you want to initialize from an OCP checkpoint.
 # checkpoint_path: ../equiformer_ckpt/eq2_153M_ec4_allmd.pt
 checkpoint_path: null

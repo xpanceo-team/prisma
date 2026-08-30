@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.models.gnns.pet.PETWrapper
+_target_: prisma.models.gnns.pet.PETWrapper
 # PET wrapper defaults. These are PET-MAD-inspired values, not an exact PET-MAD reproduction.
 num_blocks: 3
 # PET-MAD-S v1.5.0 used an 8 A cutoff.

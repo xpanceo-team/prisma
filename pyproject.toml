@@ -25,7 +25,6 @@ classifiers = [
 
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -33,24 +32,39 @@ classifiers = [
 
 requires-python = ">=3.11"
 dependencies = [
+    "numpy>=1.26",
+    "torch>=2.4",
     "pymatgen>=2024.10.3",
-    "lightning==2.2.1",
+    "lightning>=2.2",
     "hydra-core>=1.3",
     "omegaconf>=2.3",
     "datasets>=2.19",
     "huggingface-hub>=0.22",
     "diffusers>=0.33.1",
+    "accelerate>=1.0",
     "wandb>=0.16",
     "tqdm",
-    "torch_geometric",
-    "torch_scatter",
-    "fairchem-core>=1.4.0,<2.0",
-    "mattersim>=1.1.2",
+    "loguru>=0.7",
+    "torch_geometric>=2.5",
+    "torch_scatter>=2.1",
+    "torch_sparse>=0.6",
+    "e3nn>=0.5,<0.6",
+    "scipy",
+    "sympy",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = ["pytest", "black"]
+validation = [
+    "mattersim>=1.1.2",
+    "mace-torch>=0.3.9",
+]
+pet = [
+    "metatensor-torch>=0.7",
+    "metatomic-torch>=0.1",
+    "metatrain>=2026.1,<2026.3",
+]
 dft = [
     "ase>=3.28.0",
     "fire>=0.7.1",
@@ -64,13 +78,21 @@ dft = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "crystal_diffusers.__version__"}
+version = {attr = "prisma.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = [
-    "crystal_diffusers",
-    "crystal_diffusers.*",
+    "prisma",
+    "prisma.*",
     "vaspoperator",
     "vaspoperator.*",
+]
+
+[tool.setuptools.package-data]
+"prisma.backbones" = ["LICENSE.md", "README.md"]
+"prisma.backbones.equiformer_v2" = [
+    "Jd.pt",
+    "LICENSE",
+    "README.md",
 ]

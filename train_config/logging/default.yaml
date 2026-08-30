@@ -8,7 +8,7 @@ val_check_per_epoch: 1
 progress_bar_refresh_rate: 20
 
 wandb:
-  project: crystal-diffusers
+  project: prisma
   name: ${expname}
   group: ${expgroup}
   tags: ${core.tags}

@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.models.cond_encoder.ConditionEncoder
+_target_: prisma.models.cond_encoder.ConditionEncoder
 t_emb_dim: 512
 condition_dim: 512
 dropout: 0.1

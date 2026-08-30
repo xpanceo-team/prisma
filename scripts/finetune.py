@@ -4,8 +4,8 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 from hydra.core.hydra_config import HydraConfig
 
-from crystal_diffusers.training.training_utils import run_training
-from crystal_diffusers.utils.logging import configure_logging
+from prisma.training.training_utils import run_training
+from prisma.utils.logging import configure_logging
 
 
 @hydra.main(

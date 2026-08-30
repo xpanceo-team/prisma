@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.schedulers.scheduling_vpsde.VariancePreservingScheduler
+_target_: prisma.schedulers.scheduling_vpsde.VariancePreservingScheduler
 num_train_timesteps: 1000
 beta_start: 0.0001
 beta_end: 0.02

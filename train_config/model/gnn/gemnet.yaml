@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.models.gnns.gemnet.GemNetTWrapper
+_target_: prisma.models.gnns.gemnet.GemNetTWrapper
 t_emb_dim: 512
 condition_keys: []
 num_blocks: 4

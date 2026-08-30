@@ -1,14 +1,14 @@
 atomic_numbers_scheduler:
-  _target_: crystal_diffusers.schedulers.scheduling_d3pm.D3PMScheduler.from_pretrained
+  _target_: prisma.schedulers.scheduling_d3pm.D3PMScheduler.from_pretrained
   pretrained_model_name_or_path: atom-int-team/mattergen-base
   subfolder: atomic_numbers_scheduler
 
 frac_coords_scheduler:
-  _target_: crystal_diffusers.schedulers.scheduling_vesde.VarianceExplodingScheduler.from_pretrained
+  _target_: prisma.schedulers.scheduling_vesde.VarianceExplodingScheduler.from_pretrained
   pretrained_model_name_or_path: atom-int-team/mattergen-base
   subfolder: frac_coords_scheduler
 
 cell_scheduler:
-  _target_: crystal_diffusers.schedulers.scheduling_vpsde.VariancePreservingScheduler.from_pretrained
+  _target_: prisma.schedulers.scheduling_vpsde.VariancePreservingScheduler.from_pretrained
   pretrained_model_name_or_path: atom-int-team/mattergen-base
   subfolder: cell_scheduler

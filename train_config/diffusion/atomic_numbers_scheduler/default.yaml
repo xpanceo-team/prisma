@@ -1,4 +1,4 @@
-_target_: crystal_diffusers.schedulers.scheduling_d3pm.D3PMScheduler
+_target_: prisma.schedulers.scheduling_d3pm.D3PMScheduler
 num_train_timesteps: 1000
 num_categories: 101
 absorbing_state: 0

@@ -10,7 +10,7 @@ metric_checkpoints:
 #      monitor: ${..metric_name}
 #      mode: min
 #    callback:
-#      _target_: crystal_diffusers.training.callbacks.EmbeddingL2MetricCallback
+#      _target_: prisma.training.callbacks.EmbeddingL2MetricCallback
 #      _partial_: True
 #      every_n_epochs: 5
 #      batch_size: 32

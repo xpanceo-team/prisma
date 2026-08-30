@@ -1,0 +1,1 @@
+from prisma.pipelines.mattergen.pipeline_mattergen import MatterGenPipeline

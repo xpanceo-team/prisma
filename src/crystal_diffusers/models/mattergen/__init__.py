@@ -1,1 +1,0 @@
-from crystal_diffusers.models.mattergen.modeling_mattergen import MatterGenModel

@@ -3,8 +3,8 @@ import argparse
 
 import hydra
 
-from crystal_diffusers.training.training_utils import run_training
-from crystal_diffusers.utils.logging import configure_logging
+from prisma.training.training_utils import run_training
+from prisma.utils.logging import configure_logging
 
 
 def resume_run(ckpt_path, wandb_run_id=None) -> None:

@@ -1,0 +1,1 @@
+from prisma.models.mattergen.modeling_mattergen import MatterGenModel
