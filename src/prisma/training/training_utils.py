@@ -14,11 +14,22 @@ import lightning.pytorch as pl
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.trainer.connectors.logger_connector.result import _Metadata
 
 from prisma.training.datamodule import DataModule
 from prisma.training.callbacks import build_callbacks
 from prisma.utils.logging import logger
 from prisma.utils.resolvers import register_resolvers
+
+
+# Keep step and epoch metrics grouped in logger interfaces. The private
+# ``forked_name`` API and its signature are unchanged in Lightning 2.2-2.6.
+def _forked_metric_name(metadata: _Metadata, on_step: bool) -> str:
+    return f'{metadata.name}/{"step" if on_step else "epoch"}'
+
+
+_Metadata.forked_name = _forked_metric_name
+
 
 def log_hyperparameters(
     cfg: DictConfig,
