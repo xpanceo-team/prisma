@@ -1,9 +1,10 @@
-import random
-from collections.abc import Sequence
-from typing import Optional
 import functools
+import random
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Optional
 
-from datasets import load_dataset, Dataset
+from datasets import Dataset, DatasetDict, load_dataset
 import numpy as np
 import lightning.pytorch as pl
 import torch
@@ -72,7 +73,8 @@ class DataModule(pl.LightningDataModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.dataset_name = self.hparams.dataset_name
+        self.dataset_name = self.hparams.get("dataset_name")
+        self.dataset_path = self.hparams.get("dataset_path")
         self.dataset_subset = self.hparams.dataset_subset
         self.revision = self.hparams.revision
         self.max_num_atoms = self.hparams.max_num_atoms
@@ -88,13 +90,75 @@ class DataModule(pl.LightningDataModule):
 
         self.data_cls = get_class_from_string(self.hparams.data_cls)
 
+        if (self.dataset_name is None) == (self.dataset_path is None):
+            raise ValueError(
+                "Configure exactly one dataset source: dataset_name for a "
+                "Hugging Face dataset or dataset_path for local Parquet data."
+            )
+
+    def _load_datasets(self) -> DatasetDict:
+        if self.dataset_path is None:
+            return load_dataset(
+                self.dataset_name,
+                name=self.dataset_subset,
+                revision=self.revision,
+            )
+
+        data_files = self._resolve_local_data_files(self.dataset_path)
+        return load_dataset("parquet", data_files=data_files)
+
+    @staticmethod
+    def _resolve_local_data_files(
+        dataset_path: str | Mapping[str, str],
+    ) -> dict[str, str]:
+        if isinstance(dataset_path, Mapping):
+            data_files = {
+                ("valid" if split == "validation" else split): str(
+                    Path(path).expanduser()
+                )
+                for split, path in dataset_path.items()
+            }
+            if "train" not in data_files:
+                raise ValueError("Local dataset split mapping must contain 'train'.")
+            return data_files
+
+        path = Path(dataset_path).expanduser()
+        if path.is_file():
+            if path.suffix.lower() != ".parquet":
+                raise ValueError("Local dataset files must use the .parquet extension.")
+            return {"train": str(path)}
+
+        if not path.is_dir():
+            raise FileNotFoundError(f"Local dataset path does not exist: {path}")
+
+        data_files = {}
+        split_filenames = {
+            "train": ("train.parquet",),
+            "valid": ("valid.parquet", "validation.parquet"),
+            "test": ("test.parquet",),
+        }
+        for split, filenames in split_filenames.items():
+            matches = [
+                path / filename
+                for filename in filenames
+                if (path / filename).is_file()
+            ]
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Multiple local files found for the {split!r} split: {matches}"
+                )
+            if matches:
+                data_files[split] = str(matches[0])
+
+        if "train" not in data_files:
+            raise ValueError(
+                f"Local dataset directory must contain train.parquet: {path}"
+            )
+        return data_files
+
     def prepare_data(self) -> None:
         logger.info("Preparing datasets")
-        ds = load_dataset(
-            self.dataset_name,
-            name=self.dataset_subset,
-            revision=self.revision,
-        )
+        ds = self._load_datasets()
         logger.debug("Loaded datasets")
 
         condition_keys = list(self.condition.keys())
@@ -187,11 +251,7 @@ class DataModule(pl.LightningDataModule):
         else:
             raise ValueError(f"Unknown split: {split}")
 
-        datasets = load_dataset(
-            self.dataset_name,
-            name=self.dataset_subset,
-            revision=self.revision,
-        )
+        datasets = self._load_datasets()
 
         condition_keys = list(self.condition.keys())
 

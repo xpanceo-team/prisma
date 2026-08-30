@@ -1,6 +1,7 @@
 _target_: prisma.training.datamodule.DataModule
 _recursive_: False
 dataset_name: xpanceo-team/mp-20
+dataset_path:
 dataset_subset:
 revision:
 data_cls: prisma.data.StructureData
