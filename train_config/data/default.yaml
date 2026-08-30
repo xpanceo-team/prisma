@@ -1,10 +1,13 @@
 _target_: prisma.training.datamodule.DataModule
 _recursive_: False
-dataset_name: atom-int-team/mp-20
+dataset_name: xpanceo-team/mp-20
 dataset_subset:
 revision:
 data_cls: prisma.data.StructureData
 condition: ${model.cond_encoder.condition}
+max_num_atoms: 20
+validation_fraction:
+split_seed: 42
 persistent_workers: False
 num_workers: 8
 batch_size: ${training.optimization.batch_size}

@@ -142,6 +142,10 @@ class TrainingModule(pl.LightningModule):
             self.hparams.diffusion.cell_scheduler,
         )
 
+        # Diffusers loads pretrained modules in evaluation mode. Lightning expects
+        # modules to already be in training mode when fit starts.
+        self.train()
+
         self._problem_batch = False
 
     def on_fit_start(self) -> None:

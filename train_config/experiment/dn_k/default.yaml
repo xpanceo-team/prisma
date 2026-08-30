@@ -3,7 +3,7 @@
 expgroup: optical-anisotropy
 
 data:
-  dataset_name: atom-int-team/optical-anisotropy
+  dataset_name: xpanceo-team/optical-anisotropy
 
 #training:
 #  optimization:
@@ -13,7 +13,6 @@ data:
 defaults:
 #  - /model/finetune
   - ./model          # merges into cfg.model because of the @package directive
-#  - /training/finetune
 #  - /diffusion/finetune
   - override /training: finetune
   - override /diffusion: finetune

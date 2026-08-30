@@ -107,7 +107,7 @@ from prisma.pipelines.mattergen import MatterGenPipeline
 
 
 pipeline = MatterGenPipeline.from_pretrained(
-    "atom-int-team/mattergen-formula-e_above_hull",
+    "xpanceo-team/mattergen-formula-e_above_hull",
     use_safetensors=False,
 )
 

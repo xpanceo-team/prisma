@@ -19,12 +19,18 @@ def get_data_dict_from_structure_json(structure_str, data_cls: StructureData):
     return dict(data_cls.from_pymatgen(s))
 
 
+def structure_within_atom_limit(structure_str: str, max_num_atoms: int) -> bool:
+    structure = Structure.from_str(structure_str, fmt="json")
+    return len(structure) <= max_num_atoms
+
+
 def preprocess_dataset(
     ds: Dataset | DatasetDict,
     condition_keys: list[str],
     structure_json_col: str,
     data_cls: Type[StructureData],
     num_proc: int | None = None,
+    max_num_atoms: int | None = 20,
 ) -> Dataset | DatasetDict:
     if isinstance(ds, DatasetDict):
         dataset_columns = ds.column_names["train"]
@@ -42,6 +48,21 @@ def preprocess_dataset(
         raise ValueError(
             f"Columns {list(missing_columns)} not in the dataset."
             f" Current columns in the dataset: {dataset_columns}"
+        )
+
+    if max_num_atoms is not None:
+        if max_num_atoms < 1:
+            raise ValueError("max_num_atoms must be positive or None.")
+
+        filter_fn = functools.partial(
+            structure_within_atom_limit,
+            max_num_atoms=max_num_atoms,
+        )
+        ds = ds.filter(
+            filter_fn,
+            num_proc=num_proc,
+            input_columns=structure_json_col,
+            desc=f"filter structures with at most {max_num_atoms} atoms",
         )
 
     preprocess_fn = functools.partial(

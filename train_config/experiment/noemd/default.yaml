@@ -1,0 +1,37 @@
+# @package _global_
+
+expgroup: noemd
+
+data:
+  dataset_name: xpanceo-team/noemd
+  validation_fraction: 0.1
+
+model:
+  cond_encoder:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+  gnn:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+  score_model:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+
+diffusion:
+  atomic_numbers_scheduler:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+  frac_coords_scheduler:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+  cell_scheduler:
+    pretrained_model_name_or_path: xpanceo-team/mattergen-base
+
+training:
+  optimization:
+    batch_size: 32
+  trainer:
+    accumulate_grad_batches: 2
+    max_epochs: 800
+
+defaults:
+  - ./model
+  - override /training: finetune
+  - override /diffusion: finetune
+  - override /model: finetune
+  - _self_

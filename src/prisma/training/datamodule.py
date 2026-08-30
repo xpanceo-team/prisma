@@ -75,6 +75,9 @@ class DataModule(pl.LightningDataModule):
         self.dataset_name = self.hparams.dataset_name
         self.dataset_subset = self.hparams.dataset_subset
         self.revision = self.hparams.revision
+        self.max_num_atoms = self.hparams.max_num_atoms
+        self.validation_fraction = self.hparams.validation_fraction
+        self.split_seed = self.hparams.split_seed
 
         self.condition = self.hparams.condition
         self.condition_stats = {}
@@ -103,6 +106,7 @@ class DataModule(pl.LightningDataModule):
             structure_json_col="structure",
             data_cls=self.data_cls,
             num_proc=self.hparams.num_workers,
+            max_num_atoms=self.max_num_atoms,
         )
         logger.debug("Preprocessed datasets")
 
@@ -183,22 +187,38 @@ class DataModule(pl.LightningDataModule):
         else:
             raise ValueError(f"Unknown split: {split}")
 
-        ds = load_dataset(
+        datasets = load_dataset(
             self.dataset_name,
             name=self.dataset_subset,
             revision=self.revision,
-            split=split,
         )
 
         condition_keys = list(self.condition.keys())
 
-        ds = preprocess_dataset(
-            ds,
+        datasets = preprocess_dataset(
+            datasets,
             condition_keys=condition_keys,
             structure_json_col="structure",
             data_cls=self.data_cls,
             num_proc=self.hparams.num_workers,
+            max_num_atoms=self.max_num_atoms,
         )
+
+        derive_validation_split = (
+            self.validation_fraction is not None and "valid" not in datasets
+        )
+        if split in {"train", "valid"} and derive_validation_split:
+            if "train" not in datasets:
+                raise ValueError("A train split is required to derive validation data.")
+            split_datasets = datasets["train"].train_test_split(
+                test_size=self.validation_fraction,
+                seed=self.split_seed,
+            )
+            ds = split_datasets["train" if split == "train" else "test"]
+        elif split in datasets:
+            ds = datasets[split]
+        else:
+            raise ValueError(f"Dataset has no {split!r} split.")
 
         transform_fn = functools.partial(
             dataset_transform,

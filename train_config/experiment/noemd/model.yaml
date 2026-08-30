@@ -1,0 +1,24 @@
+# @package model
+
+cond_encoder:
+  dropout: 0.2
+  freeze_except_new: false
+  condition:
+    bandgap_hse:
+      condition_type: adapter
+      encoding_type: sinusoidal
+      scale: true
+    shg:
+      condition_type: adapter
+      encoding_type: sinusoidal
+      scale: true
+    dn:
+      condition_type: adapter
+      encoding_type: sinusoidal
+      scale: true
+
+gnn:
+  freeze_except_new: false
+
+score_model:
+  freeze_except_new: false

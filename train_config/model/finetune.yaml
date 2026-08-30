@@ -1,6 +1,6 @@
 cond_encoder:
   _target_: prisma.models.cond_encoder.ConditionEncoder.from_pretrained
-  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
   subfolder: condition_encoder
   dropout: 0.2
   condition:
@@ -28,12 +28,12 @@ cond_encoder:
 
 gnn:
   _target_: prisma.models.gnns.gemnet.GemNetTWrapper.from_pretrained
-  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
   subfolder: gnn
   freeze_except_new: True
 
 score_model:
   _target_: prisma.models.mattergen.modeling_mattergen.MatterGenModel.from_pretrained
-  pretrained_model_name_or_path: atom-int-team/mattergen-base
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
   subfolder: score_model
   freeze_except_new: True
