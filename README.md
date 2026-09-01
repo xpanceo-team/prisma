@@ -133,6 +133,79 @@ structures = pipeline(
 
 ## Training
 
+### Preparing a dataset
+
+Input tables contain a structure column alongside condition and metadata
+columns. PRISMA accepts Parquet, CSV, JSON, JSONL, datasets saved with
+`save_to_disk()`, and Hub datasets. Structure values may be pymatgen JSON, CIF,
+or POSCAR text.
+
+Prepare and save an Arrow-backed `DatasetDict`:
+
+```bash
+prisma data prepare data/raw.parquet \
+    --output data/materials
+```
+
+Use explicit column names and structure format when needed:
+
+```bash
+prisma data prepare data/raw.csv \
+    --structure-column crystal \
+    --structure-format cif \
+    --id-column source_id \
+    --output data/materials
+```
+
+Existing splits are preserved. A split column can define them:
+
+```bash
+prisma data prepare data/raw.parquet \
+    --split-column split \
+    --output data/materials
+```
+
+Alternatively, create a reproducible valid split from train data:
+
+```bash
+prisma data prepare data/raw.parquet \
+    --validation-fraction 0.1 \
+    --seed 42 \
+    --output data/materials
+```
+
+Inspect the prepared artifact:
+
+```bash
+prisma data inspect data/materials
+```
+
+Use it for training with:
+
+```yaml
+data:
+  dataset_name: null
+  dataset_path: data/materials
+```
+
+A Hub dataset can also be normalized locally:
+
+```bash
+prisma data prepare your-org/materials \
+    --source-type hub \
+    --revision main \
+    --output data/materials
+```
+
+Publish a prepared artifact with:
+
+```bash
+prisma data push data/materials your-org/materials --private
+```
+
+The published dataset can be selected with `data.dataset_name`; a commit or tag
+may be pinned with `data.revision`.
+
 Run training from the repository root:
 
 ```bash

@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Optional
 
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 import numpy as np
 import lightning.pytorch as pl
 import torch
@@ -93,19 +93,42 @@ class DataModule(pl.LightningDataModule):
         if (self.dataset_name is None) == (self.dataset_path is None):
             raise ValueError(
                 "Configure exactly one dataset source: dataset_name for a "
-                "Hugging Face dataset or dataset_path for local Parquet data."
+                "Hugging Face dataset or dataset_path for local data."
             )
 
     def _load_datasets(self) -> DatasetDict:
         if self.dataset_path is None:
-            return load_dataset(
-                self.dataset_name,
-                name=self.dataset_subset,
-                revision=self.revision,
+            return self._normalize_split_names(
+                load_dataset(
+                    self.dataset_name,
+                    name=self.dataset_subset,
+                    revision=self.revision,
+                )
             )
 
+        path = Path(self.dataset_path).expanduser()
+        if path.is_dir() and (
+            (path / "dataset_dict.json").is_file()
+            or (path / "state.json").is_file()
+        ):
+            datasets = load_from_disk(str(path))
+            if isinstance(datasets, Dataset):
+                datasets = DatasetDict({"train": datasets})
+            return self._normalize_split_names(datasets)
+
         data_files = self._resolve_local_data_files(self.dataset_path)
-        return load_dataset("parquet", data_files=data_files)
+        datasets = load_dataset("parquet", data_files=data_files)
+        return self._normalize_split_names(datasets)
+
+    @staticmethod
+    def _normalize_split_names(datasets: DatasetDict) -> DatasetDict:
+        if "validation" not in datasets:
+            return datasets
+        if "valid" in datasets:
+            raise ValueError("Dataset contains both 'valid' and 'validation' splits.")
+        normalized = DatasetDict(datasets)
+        normalized["valid"] = normalized.pop("validation")
+        return normalized
 
     @staticmethod
     def _resolve_local_data_files(

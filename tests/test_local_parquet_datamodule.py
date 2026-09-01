@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from datasets import Dataset
+from datasets import Dataset, DatasetDict
 from pymatgen.core import Lattice, Structure
 
 from prisma.training.datamodule import DataModule
@@ -92,3 +92,30 @@ def test_local_parquet_runs_through_training_data_pipeline(tmp_path):
     batch = next(iter(datamodule.train_dataloader()))
     assert batch["data"].num_graphs == 2
     assert batch["condition"]["property"].shape == (2,)
+
+
+def test_saved_datasetdict_runs_through_training_data_pipeline(tmp_path):
+    structure = Structure(Lattice.cubic(3.5), ["Si"], [[0, 0, 0]])
+    rows = {
+        "structure": [structure.to(fmt="json")] * 3,
+        "property": [1.0, 2.0, 3.0],
+    }
+    dataset_path = tmp_path / "materials"
+    DatasetDict(
+        {
+            "train": Dataset.from_dict(rows),
+            "valid": Dataset.from_dict(rows),
+        }
+    ).save_to_disk(dataset_path)
+
+    datamodule = DataModule(
+        **_datamodule_kwargs(
+            dataset_path=str(dataset_path),
+            validation_fraction=None,
+        )
+    )
+    datamodule.prepare_data()
+    datamodule.setup("fit")
+
+    assert len(datamodule.train_dataset) == 3
+    assert len(datamodule.valid_dataset) == 3

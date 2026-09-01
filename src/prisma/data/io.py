@@ -1,16 +1,11 @@
-from prisma.data.data import MACEStructureData, StructureData
 from prisma.data.loading import load_dataset_source
 from prisma.data.persistence import load_saved_dataset, save_dataset
 from prisma.data.preparation import prepare_dataset
-from prisma.data.structures import normalize_structure
 
 
 __all__ = [
-    "MACEStructureData",
-    "StructureData",
     "load_dataset_source",
     "load_saved_dataset",
-    "normalize_structure",
     "prepare_dataset",
     "save_dataset",
 ]
