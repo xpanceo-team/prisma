@@ -34,6 +34,11 @@ def build_parser(prog: str = "prisma train") -> argparse.ArgumentParser:
         action="store_true",
         help="Print the resolved configuration and exit without training.",
     )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="Start training without the isolated preflight step.",
+    )
     return parser
 
 
@@ -55,4 +60,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "prisma train") -> No
     run_dir = Path(cfg.training.trainer.default_root_dir).expanduser().resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "hparams.yaml").write_text(OmegaConf.to_yaml(cfg), encoding="utf-8")
-    run_training(cfg, str(run_dir), cfg.training.from_checkpoint)
+    run_training(
+        cfg,
+        str(run_dir),
+        cfg.training.from_checkpoint,
+        preflight=not args.skip_preflight,
+    )

@@ -1,4 +1,5 @@
 import functools
+import heapq
 import random
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -234,6 +235,31 @@ class DataModule(pl.LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return self._get_dataloader("test")
 
+    def preflight_dataloader(self) -> DataLoader:
+        """Return one conservative batch for checking a training configuration."""
+        if self.train_dataset is None:
+            raise ValueError("Dataset wasn't initialized. Use DataModule.setup().")
+        if len(self.train_dataset) == 0:
+            raise ValueError(
+                "The training split is empty after preprocessing and filtering."
+            )
+
+        raw_dataset = self.train_dataset.with_format(
+            None,
+            columns=["num_atoms"],
+            output_all_columns=False,
+        )
+        num_atoms = raw_dataset["num_atoms"]
+        batch_size = min(self.cfg.batch_size, len(num_atoms))
+        largest_indices = heapq.nlargest(
+            batch_size,
+            range(len(num_atoms)),
+            key=lambda index: num_atoms[index],
+        )
+        dataset = self.train_dataset.select(largest_indices)
+
+        return self._make_dataloader(dataset, shuffle=False, num_workers=0)
+
     def _get_condition_stats(
         self,
         dataset: Dataset,
@@ -337,6 +363,18 @@ class DataModule(pl.LightningDataModule):
         if dataset is None:
             raise ValueError("Dataset wasn't initialized. Use DataModule.setup().")
 
+        return self._make_dataloader(dataset, shuffle=shuffle)
+
+    def _make_dataloader(
+        self,
+        dataset: Dataset,
+        *,
+        shuffle: bool,
+        num_workers: int | None = None,
+    ) -> DataLoader:
+        if num_workers is None:
+            num_workers = self.cfg.num_workers
+
         def collate_fn(examples):
             return {
                 "data": Batch.from_data_list([example["data"] for example in examples]),
@@ -345,15 +383,14 @@ class DataModule(pl.LightningDataModule):
                 ),
             }
 
-        # TODO: why not torch DataLoader?
         return DataLoader(
             dataset,
             shuffle=shuffle,
             batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.num_workers,
+            num_workers=num_workers,
             collate_fn=collate_fn,
             worker_init_fn=worker_init_fn,
-            persistent_workers=self.cfg.persistent_workers,
+            persistent_workers=self.cfg.persistent_workers and num_workers > 0,
         )
 
     def __repr__(self) -> str:

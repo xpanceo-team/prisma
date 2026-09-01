@@ -93,6 +93,9 @@ def test_local_parquet_runs_through_training_data_pipeline(tmp_path):
     assert batch["data"].num_graphs == 2
     assert batch["condition"]["property"].shape == (2,)
 
+    preflight_batch = next(iter(datamodule.preflight_dataloader()))
+    assert preflight_batch["data"].num_atoms.tolist() == [2, 1]
+
 
 def test_saved_datasetdict_runs_through_training_data_pipeline(tmp_path):
     structure = Structure(Lattice.cubic(3.5), ["Si"], [[0, 0, 0]])

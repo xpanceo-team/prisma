@@ -1,5 +1,6 @@
 import io
 
+import pytest
 import torch
 from omegaconf import DictConfig, OmegaConf
 
@@ -137,3 +138,49 @@ def test_training_module_combines_condition_definition_and_statistics(monkeypatc
         "scale_mean": [1.0],
         "scale_std": [2.0],
     }
+
+
+def _training_module(monkeypatch) -> training_module.TrainingModule:
+    monkeypatch.setattr(
+        training_module,
+        "instantiate_from_pretrained",
+        lambda *args, **kwargs: _Component(),
+    )
+    return training_module.TrainingModule(
+        condition_stats={},
+        model={
+            "cond_encoder": {"_target_": "ConditionEncoder", "condition": {}},
+            "gnn": {"_target_": "GemNetTWrapper"},
+            "score_model": {"_target_": "MatterGenModel"},
+        },
+        diffusion={
+            "atomic_numbers_scheduler": {"_target_": "D3PMScheduler"},
+            "frac_coords_scheduler": {"_target_": "VEScheduler"},
+            "cell_scheduler": {"_target_": "VPScheduler"},
+        },
+        optimization={"optimizer": {"_target_": "Adam"}},
+    )
+
+
+def test_training_step_propagates_batch_errors(monkeypatch):
+    module = _training_module(monkeypatch)
+
+    def fail(*args, **kwargs):
+        raise ValueError("invalid structure")
+
+    monkeypatch.setattr(module, "_step", fail)
+
+    with pytest.raises(ValueError, match="invalid structure"):
+        module.step({})
+
+
+def test_training_step_rejects_non_finite_loss(monkeypatch):
+    module = _training_module(monkeypatch)
+    monkeypatch.setattr(
+        module,
+        "step",
+        lambda *args, **kwargs: {"loss": torch.tensor(float("nan"))},
+    )
+
+    with pytest.raises(FloatingPointError, match="Non-finite training loss"):
+        module.training_step({}, 0)

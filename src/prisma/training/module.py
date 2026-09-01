@@ -1,6 +1,6 @@
 import copy
 from omegaconf import OmegaConf
-from typing import Dict, Optional, Union, TYPE_CHECKING
+from typing import Dict, Optional, TYPE_CHECKING
 
 import hydra
 import lightning.pytorch as pl
@@ -164,99 +164,34 @@ class TrainingModule(pl.LightningModule):
         # modules to already be in training mode when fit starts.
         self.train()
 
-        self._problem_batch = False
-
-    def on_fit_start(self) -> None:
-        pass
-
     def step(
         self,
         batch: dict[str, any],
         batch_idx: Optional[int] = None,
         dataloader_idx: int = 0,
-    ) -> Optional[Dict[str, torch.Tensor]]:
-        self._problem_batch = False
-
+    ) -> Dict[str, torch.Tensor]:
         try:
             losses = self._step(batch, batch_idx, dataloader_idx)
-        except Exception as e:
-            logger.error(
-                f"Skipping batch due to error at epoch {self.current_epoch}: {e}"
-            )
-
-            # continue training
-            # raise e
-            self._problem_batch = True
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-            losses = None
-
-        if (
-            torch.distributed.is_available()
-            and torch.distributed.is_initialized()
-            and torch.distributed.get_world_size() > 1
-        ):
-            losses = self._skip_if_problem_batch_on_any_device(losses)
-
+        except torch.cuda.OutOfMemoryError as exc:
+            data = batch.get("data")
+            if data is not None:
+                num_atoms = data.num_atoms
+                exc.add_note(
+                    "Batch statistics: "
+                    f"structures={len(num_atoms)}, total_atoms={int(num_atoms.sum())}, "
+                    f"max_atoms={int(num_atoms.max())}. Reduce training.batch_size; "
+                    "increase training.gradient_accumulation to preserve the "
+                    "effective batch size."
+                )
+            raise
         return losses
 
-    def _skip_if_problem_batch_on_any_device(self, losses):
-        if losses is None:
-            flag_skip = torch.ones((), device=self.device, dtype=torch.bool)
-        else:
-            flag_skip = torch.zeros((), device=self.device, dtype=torch.bool)
-
-        # print(f"{flag_skip=}")
-        # suboptimal but will do,
-        # till they fix it in https://github.com/Lightning-AI/lightning/issues/5243#issuecomment-1552650013
-        world_size = torch.distributed.get_world_size()
-        torch.distributed.barrier()
-        # now gather
-        result = [torch.zeros_like(flag_skip) for _ in range(world_size)]
-        torch.distributed.all_gather(result, flag_skip)
-        any_invalid = torch.sum(torch.stack(result)).bool().item()
-
-        if any_invalid:
-            self._problem_batch = True
-            return None
-        else:
-            return losses
-
-    def configure_gradient_clipping(
-        self,
-        optimizer: Optimizer,
-        gradient_clip_val: Optional[Union[int, float]] = None,
-        gradient_clip_algorithm: Optional[str] = None,
-    ) -> None:
-        if self._problem_batch:
-            return
-
-        self.clip_gradients(
-            optimizer,
-            gradient_clip_val=gradient_clip_val,
-            gradient_clip_algorithm=gradient_clip_algorithm,
-        )
-
-    def optimizer_step(self, *args, **kwargs):
-        """
-        Skipping updates in case of unstable gradients
-        https://github.com/Lightning-AI/lightning/issues/4956
-        """
-        valid_gradients = True
-        for name, param in self.named_parameters():
-            if param.grad is not None:
-                # valid_gradients = not (torch.isnan(param.grad).any() or torch.isinf(param.grad).any())
-                valid_gradients = not (torch.isnan(param.grad).any())
-                if not valid_gradients:
-                    break
-        if not valid_gradients:
-            print(
-                "detected inf or nan values in gradients. not updating model parameters"
-            )
-            self.zero_grad()
-
-        super().optimizer_step(*args, **kwargs)
+    def on_after_backward(self) -> None:
+        for name, parameter in self.named_parameters():
+            if parameter.grad is not None and not torch.isfinite(parameter.grad).all():
+                raise FloatingPointError(
+                    f"Non-finite gradient detected in parameter {name!r}."
+                )
 
     def _step(
         self,
@@ -387,8 +322,7 @@ class TrainingModule(pl.LightningModule):
     ) -> torch.Tensor:
         outputs = self.step(batch, batch_idx, dataloader_idx)
 
-        if outputs is None:
-            return None
+        self._ensure_finite_loss(outputs, "training")
 
         outputs = {f"{key}/train": value for key, value in outputs.items()}
 
@@ -410,9 +344,7 @@ class TrainingModule(pl.LightningModule):
         dataloader_idx: int = 0,
     ) -> torch.Tensor:
         outputs = self.step(batch, batch_idx, dataloader_idx)
-
-        if outputs is None:
-            return None
+        self._ensure_finite_loss(outputs, "validation")
 
         outputs = {f"{key}/val": value for key, value in outputs.items()}
 
@@ -434,9 +366,7 @@ class TrainingModule(pl.LightningModule):
         dataloader_idx: int = 0,
     ) -> torch.Tensor:
         outputs = self.step(batch, batch_idx, dataloader_idx)
-
-        if outputs is None:
-            return None
+        self._ensure_finite_loss(outputs, "test")
 
         outputs = {f"{key}/test": value for key, value in outputs.items()}
 
@@ -450,6 +380,11 @@ class TrainingModule(pl.LightningModule):
         )
 
         return outputs["loss/test"]
+
+    @staticmethod
+    def _ensure_finite_loss(outputs: Dict[str, torch.Tensor], stage: str) -> None:
+        if not torch.isfinite(outputs["loss"]):
+            raise FloatingPointError(f"Non-finite {stage} loss detected.")
 
     def get_test_prefix(self, dataset_name=""):
         return self._test_prefix_format.format(dataset_name=dataset_name)

@@ -122,3 +122,26 @@ def test_print_config_does_not_start_training(
     output = capsys.readouterr().out
     assert "EquiformerV2Wrapper" in output
     assert "batch_size: 8" in output
+
+
+def test_skip_preflight_is_forwarded_to_training(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "training.yaml"
+    OmegaConf.save(
+        {
+            "name": "foundation",
+            "dataset_name_or_path": "organization/materials",
+            "model": {"backbone": "gemnet"},
+        },
+        config_path,
+    )
+    calls = []
+    monkeypatch.setattr(
+        "prisma.training.cli.run_training",
+        lambda *args, **kwargs: calls.append(kwargs),
+    )
+
+    training_main([str(config_path), "--skip-preflight"])
+
+    assert calls == [{"preflight": False}]

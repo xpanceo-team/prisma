@@ -18,6 +18,10 @@ from lightning.pytorch.trainer.connectors.logger_connector.result import _Metada
 
 from prisma.training.datamodule import DataModule
 from prisma.training.callbacks import build_callbacks
+from prisma.training.preflight import (
+    instantiate_training_module,
+    run_preflight,
+)
 from prisma.utils.logging import logger
 from prisma.utils.resolvers import register_resolvers
 
@@ -75,7 +79,13 @@ def log_hyperparameters(
     trainer.logger.log_hyperparams = lambda params: None
 
 
-def run_training(cfg: DictConfig, ckpt_dir: str, ckpt_path: Optional[str] = None):
+def run_training(
+    cfg: DictConfig,
+    ckpt_dir: str,
+    ckpt_path: Optional[str] = None,
+    *,
+    preflight: bool = True,
+):
     """
     Generic train loop
 
@@ -105,11 +115,18 @@ def run_training(cfg: DictConfig, ckpt_dir: str, ckpt_path: Optional[str] = None
     val_batches = len(datamodule.val_dataloader())
     val_size = len(datamodule.valid_dataset)
 
+    if preflight:
+        run_preflight(
+            cfg,
+            datamodule,
+            ckpt_path=ckpt_path,
+            run_dir=ckpt_dir,
+        )
+        if cfg.training.reproducibility.seed_everything:
+            seed_everything(cfg.training.reproducibility.random_seed)
+
     logger.debug(f"Instantiating '{cfg.training.module._target_}'")
-    module: pl.LightningModule = hydra.utils.instantiate(
-        cfg.training.module,
-        condition_stats=datamodule.condition_stats,
-    )
+    module = instantiate_training_module(cfg, datamodule)
     # for weights only
     # module = TrainingModule.load_from_checkpoint(
     #     checkpoint_path=ckpt_path,

@@ -231,6 +231,12 @@ Start training:
 prisma train training.yaml
 ```
 
+Before the run is created, PRISMA checks a high-cost training batch with the
+configured model, device, precision, and optimizer. If this preflight runs out
+of GPU memory, reduce `training.batch_size`; increase
+`training.gradient_accumulation` to preserve the effective batch size. Use
+`--skip-preflight` when resuming a configuration that has already been checked.
+
 Inspect the resolved configuration without loading weights or starting
 training:
 
