@@ -113,9 +113,14 @@ class TrainingModule(pl.LightningModule):
         self.cfg = OmegaConf.create(plain_hparams)
 
         logger.debug(f"{condition_stats=}")
+        condition_config = OmegaConf.merge(
+            self.cfg.model.cond_encoder.get("condition", {}),
+            condition_stats,
+        )
+        condition_config = OmegaConf.to_container(condition_config, resolve=True)
         self.cond_encoder: ConditionEncoder = instantiate_from_pretrained(
             self.cfg.model.cond_encoder,
-            condition=condition_stats,
+            condition=condition_config,
         )
 
         # TODO: rename attributes

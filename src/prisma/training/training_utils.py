@@ -79,7 +79,7 @@ def run_training(cfg: DictConfig, ckpt_dir: str, ckpt_path: Optional[str] = None
     """
     Generic train loop
 
-    :param cfg: run configuration, defined by Hydra in /train_config
+    :param cfg: composed training configuration
     :param ckpt_dir: path to checkpoint direcory
     :param ckpt_path: path to checkpoint
     """

@@ -9,7 +9,9 @@ from prisma.utils.logging import configure_logging
 
 
 @hydra.main(
-    config_path=str("../train_config"), config_name="default", version_base="1.3"
+    config_path=str("../src/prisma/configs"),
+    config_name="default",
+    version_base="1.3",
 )
 def main(cfg: DictConfig):
     configure_logging(level="DEBUG")

@@ -1,0 +1,17 @@
+name: equiformer-v2-foundation
+dataset_name_or_path: data/materials
+
+model:
+  backbone: equiformer_v2
+
+data:
+  max_num_atoms: 20
+  validation_fraction: 0.1
+  split_seed: 42
+
+training:
+  max_epochs: 1000
+  batch_size: 8
+  gradient_accumulation: 2
+
+output_dir: runs/equiformer-v2-foundation

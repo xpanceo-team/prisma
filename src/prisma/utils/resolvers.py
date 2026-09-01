@@ -31,6 +31,11 @@ def get_effective_batch_size(batch_size, grad_accum, devices):
 
 
 def register_resolvers():
-    OmegaConf.register_new_resolver("multiply", lambda x, y: x * y)
-    OmegaConf.register_new_resolver("effective_batch_size", get_effective_batch_size)
-    OmegaConf.register_new_resolver("version", lambda: __version__)
+    resolvers = {
+        "multiply": lambda x, y: x * y,
+        "effective_batch_size": get_effective_batch_size,
+        "version": lambda: __version__,
+    }
+    for name, resolver in resolvers.items():
+        if not OmegaConf.has_resolver(name):
+            OmegaConf.register_new_resolver(name, resolver)

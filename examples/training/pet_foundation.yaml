@@ -1,0 +1,17 @@
+name: pet-foundation
+dataset_name_or_path: data/materials
+
+model:
+  backbone: pet
+
+data:
+  max_num_atoms: 20
+  validation_fraction: 0.1
+  split_seed: 42
+
+training:
+  max_epochs: 1000
+  batch_size: 128
+  gradient_accumulation: 4
+
+output_dir: runs/pet-foundation

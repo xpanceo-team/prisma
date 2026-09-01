@@ -29,10 +29,9 @@ prisma/
 |-- notebooks/                 # Generation and validation examples
 |-- scripts/                   # Training, fine-tuning, and development scripts
 |-- src/
-|   |-- prisma/                 # Generation, training, pipelines, models, ML validation
+|   |-- prisma/                 # Generation, training, configs, pipelines, and models
 |   `-- vaspoperator/          # Automated DFT/VASP/SLURM validation backend
 |-- tests/                     # Unit tests
-|-- train_config/              # Hydra training configurations
 |-- env.yml                    # Conda environment reference
 `-- pyproject.toml             # Python package metadata and dependencies
 ```
@@ -180,14 +179,6 @@ Inspect the prepared artifact:
 prisma data inspect data/materials
 ```
 
-Use it for training with:
-
-```yaml
-data:
-  dataset_name: null
-  dataset_path: data/materials
-```
-
 A Hub dataset can also be normalized locally:
 
 ```bash
@@ -203,20 +194,77 @@ Publish a prepared artifact with:
 prisma data push data/materials your-org/materials --private
 ```
 
-The published dataset can be selected with `data.dataset_name`; a commit or tag
-may be pinned with `data.revision`.
+### Training a model
 
-Run training from the repository root:
+Create a training configuration. `dataset_name_or_path` accepts either a local
+prepared dataset or a Hugging Face dataset name:
 
-```bash
-python ./scripts/train.py
+```yaml
+name: bandgap-model
+dataset_name_or_path: data/materials
+
+model:
+  backbone: gemnet
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
+
+conditions:
+  bandgap:
+    type: scalar
+
+data:
+  max_num_atoms: 20
+  validation_fraction: 0.1
+  split_seed: 42
+
+training:
+  max_epochs: 800
+  batch_size: 32
+  gradient_accumulation: 2
+  learning_rate: 1.0e-4
+
+output_dir: runs/bandgap-model
 ```
 
-Fine-tuning and resume entry points are also available:
+Start training:
 
 ```bash
-python ./scripts/finetune.py
-python ./scripts/resume_training.py
+prisma train training.yaml
+```
+
+Inspect the resolved configuration without loading weights or starting
+training:
+
+```bash
+prisma train training.yaml --print-config
+```
+
+Override a configuration value for an individual run:
+
+```bash
+prisma train training.yaml --set training.max_epochs=100
+```
+
+Set `model.backbone` to `gemnet`, `equiformer_v2`, or `pet`. Omitting
+`pretrained_model_name_or_path` trains a new model, and omitting `conditions`
+trains an unconditional model. Each backbone selects its established
+architecture and training defaults; values under `model.config` and `training`
+override them. Complete configurations are available in `examples/training/`.
+
+Models stored on the Hugging Face Hub are PRISMA pipelines and are selected
+with `pretrained_model_name_or_path`. To resume an interrupted Lightning run,
+use its training checkpoint separately:
+
+```yaml
+training:
+  resume_from_checkpoint: runs/bandgap-model/last.ckpt
+```
+
+Weights & Biases logging is enabled explicitly:
+
+```yaml
+logging:
+  wandb:
+    project: prisma
 ```
 
 After training, a checkpoint can be converted into a generation pipeline:
@@ -239,8 +287,11 @@ pipeline = MatterGenPipeline(
     cell_scheduler=module.cell_scheduler,
 )
 
-pipeline.push_to_hub("your-org/mattergen", private=True)
-pipeline.push_to_hub("your-org/mattergen", private=True, safe_serialization=False)
+pipeline.push_to_hub(
+    "your-org/mattergen-bandgap",
+    private=True,
+    safe_serialization=False,
+)
 ```
 
 ## DFT/VASP Validation

@@ -94,6 +94,7 @@ include = [
 ]
 
 [tool.setuptools.package-data]
+"prisma.configs" = ["**/*.yaml"]
 "prisma.backbones" = ["LICENSE.md", "README.md"]
 "prisma.backbones.equiformer_v2" = [
     "Jd.pt",

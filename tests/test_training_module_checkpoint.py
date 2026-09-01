@@ -90,3 +90,50 @@ def test_datamodule_hparams_are_safe_to_load_and_runtime_config_supports_dot_acc
     assert loaded["datamodule_hyper_parameters"]["condition"]["energy"] == {
         "scale": True
     }
+
+
+def test_training_module_combines_condition_definition_and_statistics(monkeypatch):
+    calls = []
+
+    def instantiate(*args, **kwargs):
+        calls.append(kwargs)
+        component = _Component()
+        condition = kwargs.get("condition")
+        if condition:
+            component.condition_keys = list(condition)
+            component.config.condition = OmegaConf.create(condition)
+        return component
+
+    monkeypatch.setattr(training_module, "instantiate_from_pretrained", instantiate)
+
+    training_module.TrainingModule(
+        condition_stats={"energy": {"scale_mean": [1.0], "scale_std": [2.0]}},
+        model={
+            "cond_encoder": {
+                "_target_": "ConditionEncoder",
+                "condition": {
+                    "energy": {
+                        "condition_type": "adapter",
+                        "encoding_type": "sinusoidal",
+                        "scale": True,
+                    }
+                },
+            },
+            "gnn": {"_target_": "GemNetTWrapper"},
+            "score_model": {"_target_": "MatterGenModel"},
+        },
+        diffusion={
+            "atomic_numbers_scheduler": {"_target_": "D3PMScheduler"},
+            "frac_coords_scheduler": {"_target_": "VEScheduler"},
+            "cell_scheduler": {"_target_": "VPScheduler"},
+        },
+        optimization={"optimizer": {"_target_": "Adam"}},
+    )
+
+    assert calls[0]["condition"]["energy"] == {
+        "condition_type": "adapter",
+        "encoding_type": "sinusoidal",
+        "scale": True,
+        "scale_mean": [1.0],
+        "scale_std": [2.0],
+    }
