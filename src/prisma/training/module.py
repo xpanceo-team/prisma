@@ -97,11 +97,24 @@ class TrainingModule(pl.LightningModule):
         **kwargs,
     ) -> None:
         super().__init__()
-        self.save_hyperparameters()
+
+        plain_hparams = OmegaConf.to_container(
+            OmegaConf.create(
+                {
+                    "condition_stats": condition_stats,
+                    **kwargs,
+                }
+            ),
+            resolve=True,
+            throw_on_missing=True,
+            enum_to_str=True,
+        )
+        self.save_hyperparameters(plain_hparams)
+        self.cfg = OmegaConf.create(plain_hparams)
 
         logger.debug(f"{condition_stats=}")
         self.cond_encoder: ConditionEncoder = instantiate_from_pretrained(
-            self.hparams.model.cond_encoder,
+            self.cfg.model.cond_encoder,
             condition=condition_stats,
         )
 
@@ -116,30 +129,30 @@ class TrainingModule(pl.LightningModule):
             "t_emb_dim": self.cond_encoder.config.t_emb_dim,
             "condition_keys": condition_adapter_keys,
         }
-        gnn_target = self.hparams.model.gnn.get("_target_", "")
+        gnn_target = self.cfg.model.gnn.get("_target_", "")
         gnn_target_name = _get_target_factory_name(gnn_target)
         if gnn_target_name in {"PETWrapper", "PETMADWrapper", "EquiformerV2Wrapper"}:
             gnn_kwargs["condition_dim"] = self.cond_encoder.config.condition_dim
 
         self.gnn = instantiate_from_pretrained(
-            self.hparams.model.gnn,
+            self.cfg.model.gnn,
             **gnn_kwargs,
         )
 
         self.score_model = instantiate_from_pretrained(
-            self.hparams.model.score_model,
+            self.cfg.model.score_model,
         )
 
         self.atomic_numbers_scheduler = instantiate_from_pretrained(
-            self.hparams.diffusion.atomic_numbers_scheduler,
+            self.cfg.diffusion.atomic_numbers_scheduler,
         )
 
         self.frac_coords_scheduler = instantiate_from_pretrained(
-            self.hparams.diffusion.frac_coords_scheduler,
+            self.cfg.diffusion.frac_coords_scheduler,
         )
 
         self.cell_scheduler = instantiate_from_pretrained(
-            self.hparams.diffusion.cell_scheduler,
+            self.cfg.diffusion.cell_scheduler,
         )
 
         # Diffusers loads pretrained modules in evaluation mode. Lightning expects
@@ -466,21 +479,21 @@ class TrainingModule(pl.LightningModule):
             - Tuple of dictionaries as described, with an optional 'frequency' key.
             - None - Fit will run without any optimizer.
         """
-        logger.debug(f"Instantiating '{self.hparams.optimization.optimizer._target_}'")
+        logger.debug(f"Instantiating '{self.cfg.optimization.optimizer._target_}'")
         opt = hydra.utils.instantiate(
-            self.hparams.optimization.optimizer,
+            self.cfg.optimization.optimizer,
             params=[p for p in self.parameters() if p.requires_grad],
             _convert_="partial",
         )
-        if not self.hparams.optimization.lr_scheduler.use_lr_scheduler:
+        if not self.cfg.optimization.lr_scheduler.use_lr_scheduler:
             return {"optimizer": opt}
 
         logger.debug(
             f"Instantiating "
-            f"'{self.hparams.optimization.lr_scheduler.config.scheduler._target_}'"
+            f"'{self.cfg.optimization.lr_scheduler.config.scheduler._target_}'"
         )
         lr_scheduler_cfg = OmegaConf.to_container(
-            self.hparams.optimization.lr_scheduler.config,
+            self.cfg.optimization.lr_scheduler.config,
             resolve=True,
         )
         scheduler_cfg = lr_scheduler_cfg.pop("scheduler")

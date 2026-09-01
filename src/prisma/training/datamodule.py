@@ -7,6 +7,7 @@ from typing import Optional
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 import numpy as np
 import lightning.pytorch as pl
+from omegaconf import OmegaConf
 import torch
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
@@ -71,24 +72,31 @@ def dataset_transform(batch, condition_keys, data_cls):
 class DataModule(pl.LightningDataModule):
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.save_hyperparameters()
+        plain_hparams = OmegaConf.to_container(
+            OmegaConf.create(kwargs),
+            resolve=True,
+            throw_on_missing=True,
+            enum_to_str=True,
+        )
+        self.save_hyperparameters(plain_hparams)
+        self.cfg = OmegaConf.create(plain_hparams)
 
-        self.dataset_name = self.hparams.get("dataset_name")
-        self.dataset_path = self.hparams.get("dataset_path")
-        self.dataset_subset = self.hparams.dataset_subset
-        self.revision = self.hparams.revision
-        self.max_num_atoms = self.hparams.max_num_atoms
-        self.validation_fraction = self.hparams.validation_fraction
-        self.split_seed = self.hparams.split_seed
+        self.dataset_name = self.cfg.get("dataset_name")
+        self.dataset_path = self.cfg.get("dataset_path")
+        self.dataset_subset = self.cfg.dataset_subset
+        self.revision = self.cfg.revision
+        self.max_num_atoms = self.cfg.max_num_atoms
+        self.validation_fraction = self.cfg.validation_fraction
+        self.split_seed = self.cfg.split_seed
 
-        self.condition = self.hparams.condition
+        self.condition = self.cfg.condition
         self.condition_stats = {}
 
         self.train_dataset: Optional[Dataset] = None
         self.valid_dataset: Optional[Dataset] = None
         self.test_dataset: Optional[Dataset] = None
 
-        self.data_cls = get_class_from_string(self.hparams.data_cls)
+        self.data_cls = get_class_from_string(self.cfg.data_cls)
 
         if (self.dataset_name is None) == (self.dataset_path is None):
             raise ValueError(
@@ -192,7 +200,7 @@ class DataModule(pl.LightningDataModule):
             condition_keys=condition_keys,
             structure_json_col="structure",
             data_cls=self.data_cls,
-            num_proc=self.hparams.num_workers,
+            num_proc=self.cfg.num_workers,
             max_num_atoms=self.max_num_atoms,
         )
         logger.debug("Preprocessed datasets")
@@ -283,7 +291,7 @@ class DataModule(pl.LightningDataModule):
             condition_keys=condition_keys,
             structure_json_col="structure",
             data_cls=self.data_cls,
-            num_proc=self.hparams.num_workers,
+            num_proc=self.cfg.num_workers,
             max_num_atoms=self.max_num_atoms,
         )
 
@@ -341,12 +349,12 @@ class DataModule(pl.LightningDataModule):
         return DataLoader(
             dataset,
             shuffle=shuffle,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
+            batch_size=self.cfg.batch_size,
+            num_workers=self.cfg.num_workers,
             collate_fn=collate_fn,
             worker_init_fn=worker_init_fn,
-            persistent_workers=self.hparams.persistent_workers,
+            persistent_workers=self.cfg.persistent_workers,
         )
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(" f"{self.hparams=})"
+        return f"{self.__class__.__name__}(" f"{self.cfg=})"
