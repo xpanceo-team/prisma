@@ -7,6 +7,17 @@ from prisma.training.cli import main as training_main
 from prisma.training.configuration import TrainingRecipe, compose_training_config
 
 
+@pytest.mark.parametrize(
+    "config_path",
+    sorted(Path("examples/training").glob("*.yaml")),
+    ids=lambda path: path.stem,
+)
+def test_example_training_recipe_is_valid(config_path: Path) -> None:
+    recipe = TrainingRecipe.from_file(config_path)
+
+    compose_training_config(recipe)
+
+
 def test_local_conditional_pipeline_recipe(tmp_path: Path) -> None:
     dataset_path = tmp_path / "materials"
     dataset_path.mkdir()

@@ -1,0 +1,25 @@
+name: my-materials
+dataset_name_or_path: data/materials
+
+model:
+  backbone: gemnet
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
+
+conditions:
+  bandgap_hse:
+    type: scalar
+  shg:
+    type: scalar
+  dn:
+    type: scalar
+
+data:
+  max_num_atoms: 20
+
+training:
+  max_epochs: 800
+  batch_size: 32
+  gradient_accumulation: 2
+  learning_rate: 1.0e-4
+
+output_dir: runs/my-materials
