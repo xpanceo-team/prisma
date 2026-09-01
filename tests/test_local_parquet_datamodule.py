@@ -57,7 +57,7 @@ def test_local_dataset_directory_resolves_conventional_splits(tmp_path):
         DataModule._resolve_local_data_files(tmp_path)
 
 
-def test_local_parquet_runs_through_training_data_pipeline(tmp_path):
+def test_local_parquet_runs_through_training_data_pipeline(tmp_path, monkeypatch):
     structures = [
         Structure(Lattice.cubic(3.5), ["Si"], [[0, 0, 0]]),
         Structure(Lattice.cubic(4.0), ["Na", "Cl"], [[0, 0, 0], [0.5] * 3]),
@@ -82,9 +82,28 @@ def test_local_parquet_runs_through_training_data_pipeline(tmp_path):
             max_num_atoms=2,
         )
     )
+    load_calls = 0
+    original_load_datasets = datamodule._load_datasets
+
+    def counted_load_datasets():
+        nonlocal load_calls
+        load_calls += 1
+        return original_load_datasets()
+
+    monkeypatch.setattr(datamodule, "_load_datasets", counted_load_datasets)
+
     datamodule.prepare_data()
     datamodule.setup("fit")
 
+    train_dataset = datamodule.train_dataset
+    valid_dataset = datamodule.valid_dataset
+    datamodule.setup("fit")
+    datamodule.setup("test")
+
+    assert load_calls == 1
+    assert datamodule.train_dataset is train_dataset
+    assert datamodule.valid_dataset is valid_dataset
+    assert datamodule.test_dataset is None
     assert len(datamodule.train_dataset) == 2
     assert len(datamodule.valid_dataset) == 1
     assert datamodule.condition_stats["property"]["scale_mean"]

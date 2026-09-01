@@ -5,7 +5,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Optional
 
-from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
+from datasets import (
+    Dataset,
+    DatasetDict,
+    load_dataset,
+    load_dataset_builder,
+    load_from_disk,
+)
 import numpy as np
 import lightning.pytorch as pl
 from omegaconf import OmegaConf
@@ -96,6 +102,8 @@ class DataModule(pl.LightningDataModule):
         self.train_dataset: Optional[Dataset] = None
         self.valid_dataset: Optional[Dataset] = None
         self.test_dataset: Optional[Dataset] = None
+        self._prepared_datasets: Optional[DatasetDict] = None
+        self._test_split_warning_emitted = False
 
         self.data_cls = get_class_from_string(self.cfg.data_cls)
 
@@ -189,15 +197,43 @@ class DataModule(pl.LightningDataModule):
         return data_files
 
     def prepare_data(self) -> None:
+        if self.dataset_name is None:
+            return
+
+        logger.info("Downloading dataset")
+        builder = load_dataset_builder(
+            self.dataset_name,
+            name=self.dataset_subset,
+            revision=self.revision,
+        )
+        builder.download_and_prepare()
+
+    def setup(self, stage: Optional[str] = None):
+        if stage not in {None, "fit", "validate", "test", "predict"}:
+            raise ValueError(f"Unknown setup stage: {stage}")
+
+        self._ensure_datasets_prepared()
+
+        if (
+            stage in {None, "test"}
+            and self.test_dataset is None
+            and not self._test_split_warning_emitted
+        ):
+            logger.warning("Dataset has no test split; skipping post-training test.")
+            self._test_split_warning_emitted = True
+
+    def _ensure_datasets_prepared(self) -> None:
+        if self._prepared_datasets is not None:
+            return
+
         logger.info("Preparing datasets")
-        ds = self._load_datasets()
+        datasets = self._load_datasets()
         logger.debug("Loaded datasets")
 
         condition_keys = list(self.condition.keys())
-
         logger.debug("Preprocessing datasets")
-        preprocess_dataset(
-            ds,
+        datasets = preprocess_dataset(
+            datasets,
             condition_keys=condition_keys,
             structure_json_col="structure",
             data_cls=self.data_cls,
@@ -206,25 +242,35 @@ class DataModule(pl.LightningDataModule):
         )
         logger.debug("Preprocessed datasets")
 
-    def setup(self, stage: Optional[str] = None):
-        if stage is None or stage == "fit":
-            self.train_dataset = self._get_dataset("train")
-            self.condition_stats = self._get_condition_stats(self.train_dataset)
+        if "train" not in datasets:
+            raise ValueError("Dataset has no 'train' split.")
 
-            self.valid_dataset = self._get_dataset("valid")
+        if "valid" not in datasets:
+            if self.validation_fraction is None:
+                raise ValueError(
+                    "Dataset has no 'valid' split and validation_fraction is not set."
+                )
+            split_datasets = datasets["train"].train_test_split(
+                test_size=self.validation_fraction,
+                seed=self.split_seed,
+            )
+            datasets["train"] = split_datasets["train"]
+            datasets["valid"] = split_datasets["test"]
 
-        if stage is None or stage == "test":
-            try:
-                self.test_dataset = self._get_dataset("test")
-            except (ValueError, KeyError) as exc:
-                message = str(exc).lower()
-                if "split" in message and "test" in message:
-                    logger.warning(
-                        "Dataset has no test split; skipping post-training test."
-                    )
-                    self.test_dataset = None
-                else:
-                    raise
+        self.condition_stats = self._get_condition_stats(datasets["train"])
+
+        transform_fn = functools.partial(
+            dataset_transform,
+            condition_keys=condition_keys,
+            data_cls=self.data_cls,
+        )
+        for dataset in datasets.values():
+            dataset.set_transform(transform_fn)
+
+        self.train_dataset = datasets["train"]
+        self.valid_dataset = datasets["valid"]
+        self.test_dataset = datasets.get("test")
+        self._prepared_datasets = datasets
 
     def train_dataloader(self) -> DataLoader:
         return self._get_dataloader("train")
@@ -294,58 +340,6 @@ class DataModule(pl.LightningDataModule):
         dataset.set_format(**previous_format)
 
         return condition_stats
-
-    def _get_dataset(self, split: str) -> Dataset:
-        if split == "train":
-            if self.train_dataset is not None:
-                return self.train_dataset
-        elif split == "valid":
-            if self.valid_dataset is not None:
-                return self.valid_dataset
-        elif split == "test":
-            if self.test_dataset is not None:
-                return self.test_dataset
-        else:
-            raise ValueError(f"Unknown split: {split}")
-
-        datasets = self._load_datasets()
-
-        condition_keys = list(self.condition.keys())
-
-        datasets = preprocess_dataset(
-            datasets,
-            condition_keys=condition_keys,
-            structure_json_col="structure",
-            data_cls=self.data_cls,
-            num_proc=self.cfg.num_workers,
-            max_num_atoms=self.max_num_atoms,
-        )
-
-        derive_validation_split = (
-            self.validation_fraction is not None and "valid" not in datasets
-        )
-        if split in {"train", "valid"} and derive_validation_split:
-            if "train" not in datasets:
-                raise ValueError("A train split is required to derive validation data.")
-            split_datasets = datasets["train"].train_test_split(
-                test_size=self.validation_fraction,
-                seed=self.split_seed,
-            )
-            ds = split_datasets["train" if split == "train" else "test"]
-        elif split in datasets:
-            ds = datasets[split]
-        else:
-            raise ValueError(f"Dataset has no {split!r} split.")
-
-        transform_fn = functools.partial(
-            dataset_transform,
-            condition_keys=condition_keys,
-            data_cls=self.data_cls,
-        )
-
-        ds.set_transform(transform_fn)
-
-        return ds
 
     def _get_dataloader(self, split: str) -> DataLoader:
         if split == "train":
