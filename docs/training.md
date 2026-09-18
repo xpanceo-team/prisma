@@ -88,7 +88,8 @@ prisma train local_conditional.yaml \
     --set training.batch_size=16
 ```
 
-Only fields already present in the public recipe can be overridden.
+Any supported public field can be overridden, including optional fields omitted
+from the YAML. Unknown fields are rejected.
 
 ## Checkpoints and resuming
 

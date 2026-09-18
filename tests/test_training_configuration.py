@@ -4,7 +4,11 @@ import pytest
 from omegaconf import OmegaConf
 
 from prisma.training.cli import main as training_main
-from prisma.training.configuration import TrainingRecipe, compose_training_config
+from prisma.training.configuration import (
+    TrainingRecipe,
+    apply_recipe_overrides,
+    compose_training_config,
+)
 
 
 @pytest.mark.parametrize(
@@ -109,6 +113,39 @@ def test_foundational_architecture_recipes(
 def test_invalid_public_configuration_fails(config: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         TrainingRecipe.from_mapping(config)
+
+
+def test_override_can_add_valid_optional_field() -> None:
+    recipe = TrainingRecipe.from_mapping(
+        {
+            "name": "materials",
+            "dataset_name_or_path": "organization/materials",
+            "model": {"backbone": "gemnet"},
+        }
+    )
+
+    overridden = apply_recipe_overrides(
+        recipe,
+        ["training.checkpoint_every_n_epochs=5"],
+    )
+
+    assert overridden.training["checkpoint_every_n_epochs"] == 5
+
+
+def test_override_rejects_unknown_optional_field() -> None:
+    recipe = TrainingRecipe.from_mapping(
+        {
+            "name": "materials",
+            "dataset_name_or_path": "organization/materials",
+            "model": {"backbone": "gemnet"},
+        }
+    )
+
+    with pytest.raises(ValueError, match="checkpoint_every_n_epoch"):
+        apply_recipe_overrides(
+            recipe,
+            ["training.checkpoint_every_n_epoch=5"],
+        )
 
 
 def test_print_config_does_not_start_training(

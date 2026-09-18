@@ -220,10 +220,8 @@ def apply_recipe_overrides(
         if "=" not in override:
             raise ValueError(f"Override must use key=value syntax: {override!r}")
         key, raw_value = override.split("=", 1)
-        if not _has_path(content, key):
-            raise ValueError(f"Unknown or unset override field: {key}")
         value = yaml.safe_load(raw_value)
-        OmegaConf.update(content, key, value, merge=False)
+        OmegaConf.update(content, key, value, merge=False, force_add=True)
     mapping = OmegaConf.to_container(content, resolve=True)
     return TrainingRecipe.from_mapping(mapping)
 
@@ -359,12 +357,3 @@ def _validate_positive(
     ):
         qualifier = "non-negative" if allow_zero else "positive"
         raise ValueError(f"{key} must be {qualifier}.")
-
-
-def _has_path(config: DictConfig, path: str) -> bool:
-    current: Any = config
-    for part in path.split("."):
-        if not isinstance(current, (DictConfig, Mapping)) or part not in current:
-            return False
-        current = current[part]
-    return True
