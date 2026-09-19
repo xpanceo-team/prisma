@@ -128,6 +128,10 @@ Authenticate with `wandb login` before starting the run.
 
 ## Backbones
 
+For optional vector conditioning and generation-based validation with PET or
+MACE, see [Embedding conditioning](embedding-conditioning.md). That guide covers
+custom column names, the W&B distance metric, and selecting its best checkpoint.
+
 `model.backbone` accepts `gemnet`, `equiformer_v2`, or `pet`. A pretrained
 pipeline must contain weights compatible with the selected backbone. PET also
 requires the `pet` installation extra.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -9,7 +10,6 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 import yaml
 
 from prisma.utils.resolvers import register_resolvers
-
 
 _BACKBONE_TARGETS = {
     "gemnet": "prisma.models.gnns.gemnet.GemNetTWrapper",
@@ -81,6 +81,7 @@ _TRAINING_FIELDS = {
     "resume_from_checkpoint",
     "checkpoint_every_n_epochs",
     "seed",
+    "embedding_validation",
 }
 _LOGGING_FIELDS = {"wandb"}
 _CONDITION_FIELDS = {"type", "scale", "input_dim", "num_categories"}
@@ -159,6 +160,13 @@ class TrainingRecipe:
             ):
                 raise ValueError(f"conditions.{name}.input_dim is required.")
             normalized_conditions[name] = condition
+
+        if "embedding_validation" in training:
+            training["embedding_validation"] = _embedding_validation_config(
+                training["embedding_validation"],
+                normalized_conditions,
+                default_seed=training.get("seed", 42),
+            )
 
         _validate_positive(data, "max_num_atoms")
         _validate_positive(data, "num_workers", allow_zero=True)
@@ -289,9 +297,7 @@ def _condition_config(condition: Mapping[str, Any]) -> dict[str, Any]:
 def _configure_training(cfg: DictConfig, recipe: TrainingRecipe) -> None:
     training = recipe.training
     if not recipe.model.get("pretrained_model_name_or_path"):
-        architecture_defaults = _BACKBONE_TRAINING_DEFAULTS[
-            recipe.model["backbone"]
-        ]
+        architecture_defaults = _BACKBONE_TRAINING_DEFAULTS[recipe.model["backbone"]]
         cfg.training.optimization.batch_size = architecture_defaults["batch_size"]
         cfg.training.trainer.accumulate_grad_batches = architecture_defaults[
             "gradient_accumulation"
@@ -318,6 +324,87 @@ def _configure_training(cfg: DictConfig, recipe: TrainingRecipe) -> None:
         if "weight_decay" in cfg.training.optimization.optimizer:
             cfg.training.optimization.optimizer.weight_decay = training["weight_decay"]
     cfg.training.from_checkpoint = training.get("resume_from_checkpoint")
+    if "embedding_validation" in training:
+        validation = training["embedding_validation"]
+        cfg.training.checkpoints.metric_checkpoints.append(
+            {
+                "metric_name": "mean_embedding_l2_distance",
+                "params": {
+                    "monitor": "mean_embedding_l2_distance",
+                    "mode": "min",
+                    "every_n_epochs": validation["every_n_epochs"],
+                    "save_on_train_epoch_end": False,
+                },
+                "callback": {
+                    "_target_": "prisma.training.embedding_validation.EmbeddingValidationCallback",
+                    "_partial_": True,
+                    **validation,
+                },
+            }
+        )
+
+
+def _embedding_validation_config(value, conditions, *, default_seed):
+    section = "training.embedding_validation"
+    config = _mapping(value, section)
+    _reject_unknown(
+        config,
+        {
+            "condition",
+            "extractor",
+            "checkpoint",
+            "every_n_epochs",
+            "sample_size",
+            "batch_size",
+            "guidance_scale",
+            "seed",
+            "device",
+        },
+        section,
+    )
+    if config.get("extractor") not in {"pet", "mace"}:
+        raise ValueError(f"{section}.extractor must be 'pet' or 'mace'.")
+    if not isinstance(config.get("checkpoint"), str) or not config["checkpoint"]:
+        raise ValueError(f"{section}.checkpoint must be a local checkpoint path.")
+    config = {
+        "condition": "embedding",
+        "every_n_epochs": 5,
+        "sample_size": 32,
+        "batch_size": 8,
+        "guidance_scale": 3.0,
+        "seed": default_seed,
+        **config,
+    }
+    condition = config["condition"]
+    if not isinstance(condition, str) or condition not in conditions:
+        raise ValueError(
+            f"{section}.condition must name a configured vector condition."
+        )
+    if conditions[condition]["type"] != "vector":
+        raise ValueError(f"{section}.condition {condition!r} must have type: vector.")
+    dimension = conditions[condition]["input_dim"]
+    if type(dimension) is not int or dimension < 1:
+        raise ValueError(
+            f"conditions.{condition}.input_dim must be a positive integer."
+        )
+    for key in ("every_n_epochs", "sample_size", "batch_size"):
+        if type(config[key]) is not int or config[key] < 1:
+            raise ValueError(f"{section}.{key} must be a positive integer.")
+    if type(config["seed"]) is not int or config["seed"] < 0:
+        raise ValueError(f"{section}.seed must be a non-negative integer.")
+    guidance = config["guidance_scale"]
+    if (
+        isinstance(guidance, bool)
+        or not isinstance(guidance, (int, float))
+        or not math.isfinite(guidance)
+        or guidance < 0
+    ):
+        raise ValueError(f"{section}.guidance_scale must be finite and non-negative.")
+    if "device" in config and not isinstance(config["device"], str):
+        raise ValueError(
+            f"{section}.device must be a device string such as 'cpu' or 'cuda:0'."
+        )
+    return config
 
 
 def _configure_logging(cfg: DictConfig, recipe: TrainingRecipe) -> None:

@@ -17,6 +17,10 @@ exactly match the names under `conditions` in the training YAML. Parquet is the
 recommended source format because it preserves numeric types and handles
 multiline structure values reliably.
 
+The optional `prisma data embed` command adds PET or MACE vectors to a prepared
+dataset. See [Embedding conditioning](embedding-conditioning.md) for extraction,
+custom column names and a complete training example.
+
 ## Prepare a local table
 
 ```bash

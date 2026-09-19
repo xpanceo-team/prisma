@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import uuid
@@ -15,6 +16,7 @@ def save_dataset(
     overwrite: bool = False,
     max_shard_size: str | int | None = None,
     num_proc: int | None = None,
+    metadata: dict | None = None,
 ) -> Path:
     """Atomically save a Dataset or DatasetDict in Datasets disk format."""
 
@@ -35,6 +37,10 @@ def save_dataset(
             max_shard_size=max_shard_size,
             num_proc=num_proc,
         )
+        if metadata is not None:
+            (temporary_path / "prisma_metadata.json").write_text(
+                json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+            )
         if output_path.exists():
             output_path.rename(backup_path)
         try:
@@ -54,6 +60,14 @@ def load_saved_dataset(path: str | Path) -> DatasetDict:
     if isinstance(dataset, Dataset):
         return DatasetDict({"train": dataset})
     return dataset
+
+
+def load_dataset_metadata(path: str | Path) -> dict:
+    """Read optional PRISMA metadata from a saved local dataset."""
+    metadata_path = Path(path).expanduser() / "prisma_metadata.json"
+    if not metadata_path.is_file():
+        return {}
+    return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
 def _remove_path(path: Path) -> None:

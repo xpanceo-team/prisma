@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
+
+import yaml
 
 from datasets import Dataset, DatasetDict
 
 from prisma.data.loading import load_dataset_source
-from prisma.data.persistence import load_saved_dataset, save_dataset
+from prisma.data.persistence import (
+    load_dataset_metadata,
+    load_saved_dataset,
+    save_dataset,
+)
 from prisma.data.preparation import prepare_dataset
 
 
@@ -19,7 +26,35 @@ def build_parser(prog: str = "prisma data") -> argparse.ArgumentParser:
     _add_prepare_parser(commands)
     _add_inspect_parser(commands)
     _add_push_parser(commands)
+    _add_embed_parser(commands)
     return parser
+
+
+def _add_embed_parser(commands) -> None:
+    parser = commands.add_parser(
+        "embed", help="Add optional PET or MACE structure embeddings."
+    )
+    parser.add_argument(
+        "source", help="Prepared dataset directory or Hub dataset name."
+    )
+    parser.add_argument("--source-type", choices=("auto", "hub"), default="auto")
+    parser.add_argument("--config-name")
+    parser.add_argument("--revision")
+    parser.add_argument("--extractor", choices=("pet", "mace"), required=True)
+    parser.add_argument(
+        "--checkpoint", required=True, help="Local extractor checkpoint file."
+    )
+    parser.add_argument(
+        "--column", default="embedding", help="Output column (default: embedding)."
+    )
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument(
+        "--device", default="cpu", help="Extractor device, e.g. cpu or cuda:0."
+    )
+    parser.add_argument("--output", required=True, help="New local dataset directory.")
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Replace the output directory."
+    )
 
 
 def _add_prepare_parser(commands) -> None:
@@ -109,10 +144,72 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "prisma data") -> Non
             _prepare(args)
         elif args.data_command == "inspect":
             _inspect(args)
+        elif args.data_command == "embed":
+            _embed(args)
         else:
             _push(args)
-    except (OSError, TypeError, ValueError) as exc:
+    except (OSError, TypeError, ValueError, ImportError) as exc:
         parser.exit(2, f"ERROR: {exc}\n")
+
+
+def _embed(args) -> None:
+    from prisma.data.embeddings import embed_dataset
+    from prisma.embeddings import create_embedder
+
+    output = Path(args.output).expanduser().resolve()
+    if (
+        args.source_type == "auto"
+        and output == Path(args.source).expanduser().resolve()
+    ):
+        raise ValueError(
+            "Choose a different output directory to preserve the source dataset."
+        )
+    if output.exists() and not args.overwrite:
+        raise FileExistsError(
+            f"Output already exists: {output}. Pass --overwrite to replace it."
+        )
+    if args.batch_size < 1:
+        raise ValueError("--batch-size must be positive.")
+    dataset = load_dataset_source(
+        args.source,
+        source_type=args.source_type,
+        config_name=args.config_name,
+        revision=args.revision,
+    )
+    if isinstance(dataset, Dataset):
+        dataset = DatasetDict(train=dataset)
+    embedder = create_embedder(args.extractor, args.checkpoint, args.device)
+    skip_report = {}
+    result = embed_dataset(
+        dataset,
+        embedder,
+        column=args.column,
+        batch_size=args.batch_size,
+        skip_report=skip_report,
+    )
+    metadata = load_dataset_metadata(args.source) if args.source_type == "auto" else {}
+    metadata.setdefault("embeddings", {})[args.column] = embedder.metadata()
+    metadata.setdefault("embedding_filter", {})[args.column] = skip_report
+    save_dataset(result, output, overwrite=args.overwrite, metadata=metadata)
+    print(f"Saved dataset to {output}")
+    print(f"Embedding column: {args.column}; dimension: {embedder.dimension}")
+    for split, counts in skip_report.items():
+        print(
+            f"  {split}: {len(result[split])} kept, "
+            f"{counts['count']} skipped (unsupported atomic numbers: "
+            f"{counts['by_atomic_number']})"
+        )
+    print("\nUse this in your training YAML:")
+    print(
+        yaml.safe_dump(
+            {
+                "conditions": {
+                    args.column: {"type": "vector", "input_dim": embedder.dimension}
+                }
+            },
+            sort_keys=False,
+        )
+    )
 
 
 def _prepare(args) -> None:

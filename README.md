@@ -223,6 +223,7 @@ publishing the exported model.
 - [Installation](docs/installation.md)
 - [Datasets](docs/datasets.md)
 - [Training](docs/training.md)
+- [Optional embedding conditioning](docs/embedding-conditioning.md)
 - [Generation and checkpoint export](docs/generation.md)
 - [DFT/VASP validation](docs/dft.md)
 

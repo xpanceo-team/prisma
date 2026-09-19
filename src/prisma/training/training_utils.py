@@ -115,6 +115,11 @@ def run_training(
     val_batches = len(datamodule.val_dataloader())
     val_size = len(datamodule.valid_dataset)
 
+    callbacks = build_callbacks(cfg=cfg, run_dir=ckpt_dir, datamodule=datamodule)
+    logger.info(
+        f"Added callbacks: " f"{', '.join(cb.__class__.__name__ for cb in callbacks)}"
+    )
+
     if preflight:
         run_preflight(
             cfg,
@@ -172,11 +177,6 @@ def run_training(
             cfg.training.strategy, timeout=datetime.timedelta(seconds=3600)
         )
 
-    callbacks = build_callbacks(cfg=cfg, run_dir=ckpt_dir, datamodule=datamodule)
-    logger.info(
-        f"Added callbacks: " f"{', '.join(cb.__class__.__name__ for cb in callbacks)}"
-    )
-
     # The Lightning core, the Trainer
     logger.debug("Instantiating the Trainer")
     trainer = pl.Trainer(
@@ -230,6 +230,10 @@ def run_training(
             warnings.warn("No appropriate checkpoints found.")
         else:
             ckpt_path = checkpoint.best_model_path
+            if not ckpt_path:
+                # An optional generation metric may not have run yet if training
+                # stopped before its first scheduled evaluation.
+                continue
             trainer.test(model=module, datamodule=datamodule, ckpt_path=ckpt_path)
 
     # Logger closing to release resources/avoid multi-run conflicts
