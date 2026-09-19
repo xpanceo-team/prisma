@@ -108,12 +108,20 @@ def run_preflight(
                 "Preflight did not execute a training batch. Check whether the "
                 "resumed checkpoint has already reached training.max_epochs."
             )
+        if stop_after_batch.loss is None:
+            raise RuntimeError(
+                "Preflight batch was skipped because GemNet found a structure "
+                "without neighbors. Change training.seed and retry; if this "
+                "repeats, inspect the selected structures."
+            )
         report.loss = stop_after_batch.loss
         if uses_cuda:
             report.peak_gpu_memory_bytes = torch.cuda.max_memory_allocated()
         if trainer.is_global_zero:
             OmegaConf.save(asdict(report), Path(run_dir) / "preflight.yaml")
-        logger.info("Preflight passed: forward, backward, and optimizer step succeeded.")
+        logger.info(
+            "Preflight passed: forward, backward, and optimizer step succeeded."
+        )
         return report
     except torch.cuda.OutOfMemoryError as exc:
         exc.add_note(
@@ -156,7 +164,9 @@ def _log_summary(
         properties = torch.cuda.get_device_properties(0)
         device = f"{properties.name} ({properties.total_memory / 2**30:.1f} GiB)"
     trainable = sum(
-        parameter.numel() for parameter in module.parameters() if parameter.requires_grad
+        parameter.numel()
+        for parameter in module.parameters()
+        if parameter.requires_grad
     )
     accumulation = int(cfg.training.trainer.accumulate_grad_batches)
     devices = int(cfg.training.trainer.devices)

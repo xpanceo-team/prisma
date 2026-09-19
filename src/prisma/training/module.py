@@ -5,10 +5,12 @@ from typing import Dict, Optional, TYPE_CHECKING
 import hydra
 import lightning.pytorch as pl
 import torch
+import torch.distributed as distributed
 import torch.nn as nn
 from torch.optim import Optimizer
 
 from prisma.data import StructureData
+from prisma.backbones.gemnet.gemnet import NoNeighborsError
 from prisma.models.mattergen.modeling_mattergen import MatterGenOutput
 from prisma.utils.logging import logger
 
@@ -319,8 +321,12 @@ class TrainingModule(pl.LightningModule):
         batch,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> torch.Tensor:
-        outputs = self.step(batch, batch_idx, dataloader_idx)
+    ) -> torch.Tensor | None:
+        outputs = self._run_step_with_batch_recovery(
+            batch, batch_idx, dataloader_idx, "train"
+        )
+        if outputs is None:
+            return None
 
         self._ensure_finite_loss(outputs, "training")
 
@@ -342,8 +348,12 @@ class TrainingModule(pl.LightningModule):
         batch,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> torch.Tensor:
-        outputs = self.step(batch, batch_idx, dataloader_idx)
+    ) -> torch.Tensor | None:
+        outputs = self._run_step_with_batch_recovery(
+            batch, batch_idx, dataloader_idx, "valid"
+        )
+        if outputs is None:
+            return None
         self._ensure_finite_loss(outputs, "validation")
 
         outputs = {f"{key}/val": value for key, value in outputs.items()}
@@ -364,8 +374,12 @@ class TrainingModule(pl.LightningModule):
         batch,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> torch.Tensor:
-        outputs = self.step(batch, batch_idx, dataloader_idx)
+    ) -> torch.Tensor | None:
+        outputs = self._run_step_with_batch_recovery(
+            batch, batch_idx, dataloader_idx, "test"
+        )
+        if outputs is None:
+            return None
         self._ensure_finite_loss(outputs, "test")
 
         outputs = {f"{key}/test": value for key, value in outputs.items()}
@@ -380,6 +394,28 @@ class TrainingModule(pl.LightningModule):
         )
 
         return outputs["loss/test"]
+
+    def _run_step_with_batch_recovery(self, batch, batch_idx, dataloader_idx, stage):
+        error = None
+        try:
+            outputs = self.step(batch, batch_idx, dataloader_idx)
+        except NoNeighborsError as exc:
+            error = exc
+            outputs = None
+
+        # All DDP ranks must take the same optimizer and metric-logging path.
+        skipped = torch.tensor(error is not None, device=self.device, dtype=torch.int)
+        if distributed.is_available() and distributed.is_initialized():
+            distributed.all_reduce(skipped, op=distributed.ReduceOp.MAX)
+        if skipped.item():
+            reason = (
+                str(error) if error is not None else "another rank has no neighbors"
+            )
+            logger.warning(
+                f"Skipping {stage} batch {batch_idx} after GemNet neighbor failure: {reason}"
+            )
+            return None
+        return outputs
 
     @staticmethod
     def _ensure_finite_loss(outputs: Dict[str, torch.Tensor], stage: str) -> None:

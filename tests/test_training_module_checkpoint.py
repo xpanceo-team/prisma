@@ -82,9 +82,7 @@ def test_datamodule_hparams_are_safe_to_load_and_runtime_config_supports_dot_acc
     assert datamodule.cfg.condition.energy.scale is True
 
     checkpoint = io.BytesIO()
-    torch.save(
-        {"datamodule_hyper_parameters": dict(datamodule.hparams)}, checkpoint
-    )
+    torch.save({"datamodule_hyper_parameters": dict(datamodule.hparams)}, checkpoint)
     checkpoint.seek(0)
 
     loaded = torch.load(checkpoint, weights_only=True)
@@ -172,6 +170,89 @@ def test_training_step_propagates_batch_errors(monkeypatch):
 
     with pytest.raises(ValueError, match="invalid structure"):
         module.step({})
+
+
+@pytest.mark.parametrize("stage", ["training_step", "validation_step", "test_step"])
+def test_gemnet_no_neighbors_skips_only_the_affected_batch(monkeypatch, stage):
+    from prisma.backbones.gemnet.gemnet import NoNeighborsError
+
+    module = _training_module(monkeypatch)
+
+    def no_neighbors(*args, **kwargs):
+        raise NoNeighborsError([2])
+
+    monkeypatch.setattr(module, "step", no_neighbors)
+    assert getattr(module, stage)({}, 7) is None
+
+
+def test_other_training_errors_still_propagate(monkeypatch):
+    module = _training_module(monkeypatch)
+
+    def invalid(*args, **kwargs):
+        raise ValueError("invalid structure")
+
+    monkeypatch.setattr(module, "step", invalid)
+    with pytest.raises(ValueError, match="invalid structure"):
+        module.training_step({}, 0)
+
+
+def test_gemnet_empty_graph_error_does_not_require_material_ids():
+    from prisma.backbones.gemnet.gemnet import GemNetT, NoNeighborsError
+
+    with pytest.raises(NoNeighborsError, match="batch image indices=\\[1\\]"):
+        GemNetT.select_edges(
+            None,
+            data=object(),
+            edge_index=torch.tensor([[0], [0]]),
+            cell_offsets=torch.zeros((1, 3)),
+            neighbors=torch.tensor([1, 0]),
+            edge_dist=torch.ones(1),
+            edge_vector=torch.zeros((1, 3)),
+        )
+
+
+def test_lightning_continues_after_no_neighbor_batch(tmp_path):
+    import lightning.pytorch as pl
+    from torch.utils.data import DataLoader
+
+    from prisma.backbones.gemnet.gemnet import NoNeighborsError
+
+    class SometimesEmpty(pl.LightningModule):
+        training_step = training_module.TrainingModule.training_step
+        _run_step_with_batch_recovery = (
+            training_module.TrainingModule._run_step_with_batch_recovery
+        )
+        _ensure_finite_loss = staticmethod(
+            training_module.TrainingModule._ensure_finite_loss
+        )
+
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.tensor(1.0))
+
+        def step(self, batch, batch_idx, dataloader_idx):
+            if batch_idx == 0:
+                raise NoNeighborsError([0])
+            return {"loss": self.weight.square()}
+
+        def configure_optimizers(self):
+            return torch.optim.AdamW(self.parameters(), lr=0.1)
+
+    module = SometimesEmpty()
+    trainer = pl.Trainer(
+        accelerator="cpu",
+        devices=1,
+        max_epochs=1,
+        accumulate_grad_batches=2,
+        logger=False,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(module, train_dataloaders=DataLoader([0, 1], batch_size=1))
+    assert trainer.global_step == 1
+    assert module.weight.item() < 1.0
 
 
 def test_training_step_rejects_non_finite_loss(monkeypatch):

@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import lightning.pytorch as pl
 from omegaconf import OmegaConf
+import pytest
 import torch
 from torch.utils.data import DataLoader
 
@@ -76,3 +77,36 @@ def test_preflight_runs_optimizer_step_and_writes_report(tmp_path, monkeypatch):
     assert report.max_atoms == 20
     assert report.loss is not None
     assert (tmp_path / "preflight.yaml").is_file()
+
+
+def test_preflight_does_not_pass_when_the_only_batch_is_skipped(tmp_path, monkeypatch):
+    class SkippedModule(_TinyTrainingModule):
+        def training_step(self, batch, batch_idx):
+            return None
+
+    monkeypatch.setattr(
+        preflight,
+        "instantiate_training_module",
+        lambda cfg, datamodule: SkippedModule(),
+    )
+    cfg = OmegaConf.create(
+        {
+            "data": {"batch_size": 2},
+            "training": {
+                "module": {"_target_": "unused"},
+                "trainer": {
+                    "accelerator": "cpu",
+                    "devices": 1,
+                    "precision": 32,
+                    "max_epochs": 1,
+                    "accumulate_grad_batches": 2,
+                },
+                "strategy": {"_target_": "unused"},
+            },
+        }
+    )
+    with pytest.raises(RuntimeError, match="Preflight batch was skipped"):
+        preflight.run_preflight(
+            cfg, _TinyDataModule(), ckpt_path=None, run_dir=tmp_path
+        )
+    assert not (tmp_path / "preflight.yaml").exists()

@@ -33,6 +33,16 @@ from .layers.spherical_basis import CircularBasisLayer
 from .utils import inner_product_normalized, mask_neighbors, ragged_range, repeat_blocks
 
 
+class NoNeighborsError(ValueError):
+    """A generated crystal has no edges within the GemNet cutoff."""
+
+    def __init__(self, image_indices: list[int]):
+        self.image_indices = image_indices
+        super().__init__(
+            f"An image has no neighbors: batch image indices={image_indices}."
+        )
+
+
 @registry.register_model("gemnet_t")
 class GemNetT(nn.Module, GraphModelMixin):
     """
@@ -412,10 +422,7 @@ class GemNetT(nn.Module, GraphModelMixin):
 
         empty_image = neighbors == 0
         if torch.any(empty_image):
-            raise ValueError(
-                f"An image has no neighbors: id={data.id[empty_image]}, "
-                f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
-            )
+            raise NoNeighborsError(empty_image.nonzero(as_tuple=True)[0].tolist())
         return edge_index, cell_offsets, neighbors, edge_dist, edge_vector
 
     def generate_interaction_graph(self, data):
