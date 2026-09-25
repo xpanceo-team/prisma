@@ -62,3 +62,8 @@ def normalize_structure(
         f"Unable to parse structure{context_text} as {', '.join(formats)}. "
         f"Parser errors: {attempted}"
     )
+
+
+def structure_within_atom_limit(structure_json: str, max_num_atoms: int) -> bool:
+    """Return whether a serialized structure fits the configured atom limit."""
+    return len(Structure.from_str(structure_json, fmt="json")) <= max_num_atoms

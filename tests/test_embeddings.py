@@ -92,6 +92,74 @@ def test_embedding_column_defaults_to_embedding_and_rejects_overwrite(tmp_path):
         embed_dataset(result, embedder)
 
 
+def test_embed_cli_materializes_training_filter_and_validation_split(
+    tmp_path, monkeypatch
+):
+    checkpoint = tmp_path / "weights"
+    checkpoint.write_bytes(b"weights")
+    structures = [
+        Structure(
+            Lattice.cubic(4),
+            ["Si"] * count,
+            [[i / count] * 3 for i in range(count)],
+        )
+        for count in (1, 2, 3, 1, 2, 3)
+    ]
+    source = tmp_path / "source"
+    save_dataset(
+        DatasetDict(
+            train=Dataset.from_dict(
+                {
+                    "structure": [structure.to(fmt="json") for structure in structures],
+                    "id": list("abcdef"),
+                }
+            )
+        ),
+        source,
+    )
+    monkeypatch.setattr(
+        "prisma.embeddings.create_embedder", lambda *args: ToyEmbedder(str(checkpoint))
+    )
+    output = tmp_path / "embedded"
+
+    data_main(
+        [
+            "embed",
+            str(source),
+            "--extractor",
+            "pet",
+            "--checkpoint",
+            str(checkpoint),
+            "--max-num-atoms",
+            "2",
+            "--validation-fraction",
+            "0.25",
+            "--seed",
+            "42",
+            "--output",
+            str(output),
+        ]
+    )
+
+    result = load_saved_dataset(output)
+    expected = Dataset.from_dict(
+        {
+            "id": ["a", "b", "d", "e"],
+        }
+    ).train_test_split(test_size=0.25, seed=42)
+    assert result["train"]["id"] == expected["train"]["id"]
+    assert result["valid"]["id"] == expected["test"]["id"]
+    report = load_dataset_metadata(output)["materialized_training_splits"]
+    assert report == {
+        "source_rows": {"train": 6},
+        "max_num_atoms": 2,
+        "eligible_rows": {"train": 4},
+        "validation_fraction": 0.25,
+        "split_seed": 42,
+        "output_rows": {"train": 3, "valid": 1},
+    }
+
+
 def test_empty_optional_split_preserves_embedding_schema(tmp_path):
     checkpoint = tmp_path / "weights"
     checkpoint.write_bytes(b"weights")

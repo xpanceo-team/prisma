@@ -5,7 +5,11 @@ from typing import Any
 from datasets import Dataset, DatasetDict, Value, concatenate_datasets
 
 from prisma.data.loading import SourceType, load_dataset_source
-from prisma.data.structures import StructureFormat, normalize_structure
+from prisma.data.structures import (
+    StructureFormat,
+    normalize_structure,
+    structure_within_atom_limit,
+)
 
 
 _SPLIT_ALIASES = {
@@ -16,6 +20,62 @@ _SPLIT_ALIASES = {
     "val": "valid",
     "test": "test",
 }
+
+
+def materialize_training_splits(
+    dataset: DatasetDict,
+    *,
+    max_num_atoms: int | None = None,
+    validation_fraction: float | None = None,
+    seed: int = 42,
+    num_proc: int | None = None,
+) -> tuple[DatasetDict, dict[str, Any]]:
+    """Apply training atom filtering and optionally materialize validation."""
+    if max_num_atoms is not None and max_num_atoms < 1:
+        raise ValueError("max_num_atoms must be positive or None.")
+    if validation_fraction is not None and not 0 < validation_fraction < 1:
+        raise ValueError("validation_fraction must be between 0 and 1.")
+    if validation_fraction is not None and "valid" in dataset:
+        raise ValueError(
+            "validation_fraction cannot be used when valid already exists."
+        )
+    if "train" not in dataset:
+        raise ValueError("A train split is required to create training data.")
+
+    source_rows = {name: len(rows) for name, rows in dataset.items()}
+    result = dataset
+    if max_num_atoms is not None:
+        result = result.filter(
+            structure_within_atom_limit,
+            fn_kwargs={"max_num_atoms": max_num_atoms},
+            input_columns="structure",
+            num_proc=num_proc,
+            desc=f"filter structures with at most {max_num_atoms} atoms",
+        )
+
+    eligible_rows = {name: len(rows) for name, rows in result.items()}
+    if validation_fraction is not None:
+        split = result["train"].train_test_split(
+            test_size=validation_fraction,
+            seed=seed,
+        )
+        result = DatasetDict(
+            {
+                **{name: rows for name, rows in result.items() if name != "train"},
+                "train": split["train"],
+                "valid": split["test"],
+            }
+        )
+
+    report = {
+        "source_rows": source_rows,
+        "max_num_atoms": max_num_atoms,
+        "eligible_rows": eligible_rows,
+        "validation_fraction": validation_fraction,
+        "split_seed": seed if validation_fraction is not None else None,
+        "output_rows": {name: len(rows) for name, rows in result.items()},
+    }
+    return result, report
 
 
 def prepare_dataset(

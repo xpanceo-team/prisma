@@ -1,0 +1,37 @@
+# Optional PET embedding conditioning of a GemNet-based generator.
+# See docs/embedding-conditioning.md for dataset preparation and custom columns.
+name: pet-embedding
+dataset_name_or_path: data/mp-pet
+
+model:
+  backbone: gemnet
+  pretrained_model_name_or_path: xpanceo-team/mattergen-base
+
+conditions:
+  embedding:
+    type: vector
+    input_dim: 512  # PET-MAD v1.0.2; use the dimension printed by prisma data embed.
+
+data:
+  max_num_atoms: 20
+
+training:
+  max_epochs: 800
+  batch_size: 32
+  gradient_accumulation: 2
+  learning_rate: 1.0e-4
+  embedding_validation:
+    condition: embedding
+    extractor: pet
+    checkpoint: models/pet-mad-v1.0.2.ckpt
+    every_n_epochs: 5
+    sample_size: 32
+    batch_size: 8
+    guidance_scale: 3.0
+    seed: 42
+
+logging:
+  wandb:
+    project: prisma
+
+output_dir: runs/pet-embedding

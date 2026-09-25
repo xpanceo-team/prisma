@@ -11,17 +11,13 @@ from pymatgen.core import Structure
 from tqdm.auto import tqdm
 
 from prisma.data import StructureData
+from prisma.data.structures import structure_within_atom_limit
 
 
 def get_data_dict_from_structure_json(structure_str, data_cls: StructureData):
     s = Structure.from_str(structure_str, fmt="json")
 
     return dict(data_cls.from_pymatgen(s))
-
-
-def structure_within_atom_limit(structure_str: str, max_num_atoms: int) -> bool:
-    structure = Structure.from_str(structure_str, fmt="json")
-    return len(structure) <= max_num_atoms
 
 
 def preprocess_dataset(

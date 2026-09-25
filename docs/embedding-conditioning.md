@@ -68,6 +68,8 @@ prisma data embed data/materials \
     --extractor pet \
     --checkpoint models/pet-mad-v1.0.2.ckpt \
     --column structure_descriptor \
+    --max-num-atoms 20 \
+    --validation-fraction 0.1 --seed 42 \
     --batch-size 16 --device cpu \
     --output data/materials-pet
 
@@ -79,6 +81,13 @@ extractor, independently of the later training batch size. The command writes
 a new dataset, prints the measured embedding dimension and a ready-to-copy
 `conditions` block. For another checkpoint, use that printed dimension instead
 of assuming 512. An existing column is never silently overwritten.
+
+`--max-num-atoms` and `--validation-fraction` materialize the same data selection
+that training would otherwise perform dynamically. Embedding extraction first
+omits unsupported-element rows, atom filtering runs next, and the seeded split
+runs last. When these options are used, keep `data.max_num_atoms` in the training
+recipe as a safety check, but omit `data.validation_fraction`: the saved dataset
+already contains `train` and `valid`.
 
 If a structure contains an element absent from the extractor checkpoint,
 `prisma data embed` omits that row and reports the kept and skipped counts for

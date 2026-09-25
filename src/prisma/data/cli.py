@@ -14,7 +14,7 @@ from prisma.data.persistence import (
     load_saved_dataset,
     save_dataset,
 )
-from prisma.data.preparation import prepare_dataset
+from prisma.data.preparation import materialize_training_splits, prepare_dataset
 
 
 def build_parser(prog: str = "prisma data") -> argparse.ArgumentParser:
@@ -51,6 +51,18 @@ def _add_embed_parser(commands) -> None:
     parser.add_argument(
         "--device", default="cpu", help="Extractor device, e.g. cpu or cuda:0."
     )
+    parser.add_argument(
+        "--max-num-atoms",
+        type=int,
+        help="Keep structures up to this atom count, as training would.",
+    )
+    parser.add_argument(
+        "--validation-fraction",
+        type=float,
+        help="Materialize this fraction of train as a valid split.",
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Split seed.")
+    parser.add_argument("--num-proc", type=int, help="Worker processes.")
     parser.add_argument("--output", required=True, help="New local dataset directory.")
     parser.add_argument(
         "--overwrite", action="store_true", help="Replace the output directory."
@@ -187,10 +199,27 @@ def _embed(args) -> None:
         batch_size=args.batch_size,
         skip_report=skip_report,
     )
+    materialized_report = None
+    if args.max_num_atoms is not None or args.validation_fraction is not None:
+        result, materialized_report = materialize_training_splits(
+            result,
+            max_num_atoms=args.max_num_atoms,
+            validation_fraction=args.validation_fraction,
+            seed=args.seed,
+            num_proc=args.num_proc,
+        )
     metadata = load_dataset_metadata(args.source) if args.source_type == "auto" else {}
     metadata.setdefault("embeddings", {})[args.column] = embedder.metadata()
     metadata.setdefault("embedding_filter", {})[args.column] = skip_report
-    save_dataset(result, output, overwrite=args.overwrite, metadata=metadata)
+    if materialized_report is not None:
+        metadata["materialized_training_splits"] = materialized_report
+    save_dataset(
+        result,
+        output,
+        overwrite=args.overwrite,
+        metadata=metadata,
+        num_proc=args.num_proc,
+    )
     print(f"Saved dataset to {output}")
     print(f"Embedding column: {args.column}; dimension: {embedder.dimension}")
     for split, counts in skip_report.items():
