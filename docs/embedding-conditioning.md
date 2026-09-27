@@ -97,6 +97,10 @@ generation-based validation can only compare structures retained in `valid`.
 Other extraction errors still stop the command. If all rows in `train` or
 `valid` are omitted, the command fails without saving an output dataset.
 
+To recompute an existing embedding column with another extractor while keeping
+the saved rows and splits unchanged, use `--replace-column` and write to a new
+output directory.
+
 `data/materials-pet/prisma_metadata.json` records the checkpoint SHA-256,
 feature output, pooling, dimension and library versions per embedding column.
 Keep this file with the local dataset. Training checks it when present.

@@ -15,6 +15,7 @@ def embed_dataset(
     column: str = "embedding",
     batch_size: int = 16,
     skip_report: dict | None = None,
+    replace_column: bool = False,
 ) -> DatasetDict:
     """Add embeddings, omitting structures with elements unsupported by the extractor."""
     structural_columns = {
@@ -37,12 +38,22 @@ def embed_dataset(
             raise ValueError(
                 f"Split {split!r} has no 'structure' column; run prisma data prepare first."
             )
-        if column in rows.column_names:
+        if column in rows.column_names and not replace_column:
             raise ValueError(
                 f"Column {column!r} already exists in split {split!r}; choose a new column."
             )
     if not any(len(rows) for rows in dataset.values()):
         raise ValueError("Cannot embed an empty dataset.")
+
+    if replace_column:
+        dataset = DatasetDict(
+            {
+                split: (
+                    rows.remove_columns(column) if column in rows.column_names else rows
+                )
+                for split, rows in dataset.items()
+            }
+        )
 
     result = DatasetDict()
     supported = embedder.supported_atomic_numbers

@@ -92,6 +92,31 @@ def test_embedding_column_defaults_to_embedding_and_rejects_overwrite(tmp_path):
         embed_dataset(result, embedder)
 
 
+def test_replace_column_preserves_rows_and_recomputes_embeddings(tmp_path):
+    checkpoint = tmp_path / "weights"
+    checkpoint.write_bytes(b"weights")
+    structures = [Structure(Lattice.cubic(a), ["Si"], [[0, 0, 0]]) for a in (3, 4)]
+    dataset = DatasetDict(
+        train=Dataset.from_dict(
+            {
+                "structure": [structure.to(fmt="json") for structure in structures],
+                "material_id": ["first", "second"],
+                "embedding": [[99.0, 99.0], [99.0, 99.0]],
+            }
+        )
+    )
+
+    result = embed_dataset(
+        dataset,
+        ToyEmbedder(str(checkpoint)),
+        replace_column=True,
+    )
+
+    assert result["train"]["material_id"] == ["first", "second"]
+    assert result["train"]["embedding"] == [[3, 1], [4, 1]]
+    assert dataset["train"]["embedding"] == [[99.0, 99.0], [99.0, 99.0]]
+
+
 def test_embed_cli_materializes_training_filter_and_validation_split(
     tmp_path, monkeypatch
 ):

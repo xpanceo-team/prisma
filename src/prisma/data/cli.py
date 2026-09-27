@@ -47,6 +47,11 @@ def _add_embed_parser(commands) -> None:
     parser.add_argument(
         "--column", default="embedding", help="Output column (default: embedding)."
     )
+    parser.add_argument(
+        "--replace-column",
+        action="store_true",
+        help="Replace an existing embedding column in the new output dataset.",
+    )
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument(
         "--device", default="cpu", help="Extractor device, e.g. cpu or cuda:0."
@@ -198,6 +203,7 @@ def _embed(args) -> None:
         column=args.column,
         batch_size=args.batch_size,
         skip_report=skip_report,
+        replace_column=args.replace_column,
     )
     materialized_report = None
     if args.max_num_atoms is not None or args.validation_fraction is not None:
