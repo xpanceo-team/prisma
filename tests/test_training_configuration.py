@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import pytest
 from omegaconf import OmegaConf
@@ -85,6 +86,24 @@ def test_foundational_architecture_recipes(
     assert cfg.model.gnn.atom_emb_dim == atom_emb_dim
     assert cfg.model.cond_encoder.condition == {}
     assert "pretrained_model_name_or_path" not in cfg.model.gnn
+
+
+def test_default_run_directory_and_wandb_name_share_timestamp() -> None:
+    recipe = TrainingRecipe.from_mapping(
+        {
+            "name": "mace-embedding",
+            "dataset_name_or_path": "organization/materials",
+            "model": {"backbone": "gemnet"},
+            "logging": {"wandb": {"project": "prisma"}},
+        }
+    )
+
+    cfg = compose_training_config(recipe)
+    run_name = Path(cfg.training.trainer.default_root_dir).name
+
+    assert re.fullmatch(r"mace-embedding_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}", run_name)
+    assert cfg.expname == run_name
+    assert OmegaConf.to_container(cfg.logging.wandb, resolve=True)["name"] == run_name
 
 
 @pytest.mark.parametrize(

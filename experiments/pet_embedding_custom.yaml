@@ -33,5 +33,3 @@ training:
 logging:
   wandb:
     project: prisma
-
-output_dir: runs/pet-embedding

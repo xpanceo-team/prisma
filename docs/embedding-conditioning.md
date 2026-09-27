@@ -153,7 +153,6 @@ logging:
   wandb:
     project: prisma
 
-output_dir: runs/pet-embedding-custom
 ```
 
 The name must agree in three places: `--column` during extraction, the key
@@ -166,6 +165,10 @@ extractor uses the training device unless you set
 `training.embedding_validation.device: cpu` (or another device). The frozen
 extractor uses additional memory while training. Reduce its validation
 `batch_size` or select CPU if needed.
+
+When `output_dir` is omitted, PRISMA creates
+`runs/<name>_YYYY-MM-DD_HH-MM-SS` and uses the same timestamped name in W&B.
+An explicit `output_dir` remains unchanged.
 
 ## 5. Review, authenticate and train
 

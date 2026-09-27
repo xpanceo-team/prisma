@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 import math
 from pathlib import Path
 from typing import Any, Mapping
@@ -206,14 +207,15 @@ def compose_training_config(recipe: TrainingRecipe) -> DictConfig:
     ):
         cfg = hydra.compose(config_name=config_name, overrides=overrides)
 
+    run_name = f"{recipe.name}_{datetime.now().astimezone():%Y-%m-%d_%H-%M-%S}"
     cfg.expgroup = recipe.name
-    cfg.expname = recipe.name
+    cfg.expname = run_name
     _configure_dataset(cfg, recipe)
     _configure_model(cfg, recipe)
     _configure_training(cfg, recipe)
     _configure_logging(cfg, recipe)
 
-    output_dir = Path(recipe.output_dir or f"runs/{recipe.name}").expanduser()
+    output_dir = Path(recipe.output_dir or f"runs/{run_name}").expanduser()
     cfg.training.trainer.default_root_dir = str(output_dir)
     return cfg
 
