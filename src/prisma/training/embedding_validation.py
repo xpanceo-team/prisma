@@ -15,6 +15,62 @@ from prisma.embeddings.base import validate_embeddings
 from prisma.pipelines.mattergen.pipeline_mattergen import MatterGenPipeline
 
 EMBEDDING_METRIC = "mean_embedding_l2_distance"
+EMBEDDING_COSINE_METRIC = "mean_embedding_cosine_distance"
+EMBEDDING_RELATIVE_L2_METRIC = "mean_embedding_relative_l2_distance"
+EMBEDDING_REFERENCE_NORMALIZED_L2_METRIC = (
+    "mean_embedding_reference_normalized_l2_distance"
+)
+
+
+def _mean_pairwise_l2(values: np.ndarray) -> float:
+    """Return the mean distance between distinct vectors in a reference sample."""
+    if len(values) < 2:
+        raise ValueError("Embedding validation requires at least two sampled rows.")
+    row, column = np.triu_indices(len(values), k=1)
+    scale = float(np.linalg.norm(values[row] - values[column], axis=1).mean())
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError(
+            "Embedding validation targets must contain at least two distinct vectors."
+        )
+    return scale
+
+
+def _embedding_metrics(
+    generated: np.ndarray, targets: np.ndarray, reference_l2_scale: float
+) -> dict[str, float]:
+    """Calculate raw and scale-independent distances for paired embeddings."""
+    generated = generated.astype(np.float64)
+    targets = targets.astype(np.float64)
+    delta_norm = np.linalg.norm(generated - targets, axis=1)
+    target_norm = np.linalg.norm(targets, axis=1)
+    generated_norm = np.linalg.norm(generated, axis=1)
+    denominator = generated_norm * target_norm
+    cosine_similarity = np.divide(
+        np.sum(generated * targets, axis=1),
+        denominator,
+        out=np.zeros_like(denominator),
+        where=denominator > 0,
+    )
+    cosine_similarity = np.clip(cosine_similarity, -1.0, 1.0)
+    relative_l2 = np.divide(
+        delta_norm,
+        target_norm,
+        out=np.full_like(delta_norm, np.inf),
+        where=target_norm > 0,
+    )
+    metrics = {
+        EMBEDDING_METRIC: float(delta_norm.mean()),
+        EMBEDDING_COSINE_METRIC: float((1.0 - cosine_similarity).mean()),
+        EMBEDDING_RELATIVE_L2_METRIC: float(relative_l2.mean()),
+        EMBEDDING_REFERENCE_NORMALIZED_L2_METRIC: float(
+            delta_norm.mean() / reference_l2_scale
+        ),
+    }
+    if not all(np.isfinite(value) for value in metrics.values()):
+        raise ValueError(
+            "Scale-independent embedding metrics require non-zero target vectors."
+        )
+    return metrics
 
 
 class EmbeddingValidationCallback(pl.Callback):
@@ -91,6 +147,11 @@ class EmbeddingValidationCallback(pl.Callback):
         self.targets = validate_embeddings(
             self.samples[condition], count=len(self.indices), dimension=self.dimension
         )
+        if np.any(np.linalg.norm(self.targets.astype(np.float64), axis=1) == 0):
+            raise ValueError(
+                "Scale-independent embedding metrics require non-zero target vectors."
+            )
+        self.reference_l2_scale = _mean_pairwise_l2(self.targets.astype(np.float64))
         self.num_atoms = (
             np.asarray(self.samples["num_atoms"]).reshape(-1).astype(int).tolist()
         )
@@ -160,6 +221,7 @@ class EmbeddingValidationCallback(pl.Callback):
             "batch_size": self.batch_size,
             "guidance_scale": self.guidance_scale,
             "every_n_epochs": self.every_n_epochs,
+            "reference_l2_scale": self.reference_l2_scale,
         }
         if self._restored_state:
             previous = self._restored_state
@@ -213,7 +275,7 @@ class EmbeddingValidationCallback(pl.Callback):
         ):
             pipeline = self._make_pipeline(pl_module)
             generator = torch.Generator(device=device).manual_seed(self.seed)
-            distances = []
+            generated_batches = []
             for start in range(0, len(self.indices), self.batch_size):
                 stop = min(start + self.batch_size, len(self.indices))
                 # Keep other configured conditions at their validation-row values.
@@ -234,20 +296,21 @@ class EmbeddingValidationCallback(pl.Callback):
                     count=stop - start,
                     dimension=self.dimension,
                 )
-                delta = generated.astype(np.float64) - self.targets[start:stop].astype(
-                    np.float64
-                )
-                distances.extend(np.linalg.norm(delta, axis=1).tolist())
-        pl_module.log(
-            EMBEDDING_METRIC,
-            float(np.mean(distances)),
-            prog_bar=True,
-            logger=True,
-            on_step=False,
-            on_epoch=True,
-            batch_size=len(self.indices),
-            sync_dist=True,
+                generated_batches.append(generated)
+        metrics = _embedding_metrics(
+            np.concatenate(generated_batches), self.targets, self.reference_l2_scale
         )
+        for name, value in metrics.items():
+            pl_module.log(
+                name,
+                value,
+                prog_bar=name == EMBEDDING_METRIC,
+                logger=True,
+                on_step=False,
+                on_epoch=True,
+                batch_size=len(self.indices),
+                sync_dist=True,
+            )
         self._last_evaluated_epoch = trainer.current_epoch
 
     @staticmethod

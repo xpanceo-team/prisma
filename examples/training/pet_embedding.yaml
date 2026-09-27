@@ -20,6 +20,8 @@ training:
   batch_size: 32
   gradient_accumulation: 2
   learning_rate: 1.0e-4
+  # Opt-in generation validation logs raw L2, cosine, relative L2, and
+  # reference-normalized L2 embedding distances.
   embedding_validation:
     condition: embedding
     extractor: pet

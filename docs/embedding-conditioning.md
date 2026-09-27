@@ -176,9 +176,19 @@ its output dimension.
 
 ## W&B metric and best checkpoints
 
-The W&B run receives `mean_embedding_l2_distance/epoch`, following PRISMA's
-existing convention for epoch metrics. The checkpoint monitor is named
-`mean_embedding_l2_distance`, as in the earlier MACE callback.
+Enabling `training.embedding_validation` adds four W&B epoch metrics:
+
+| Metric | Definition | Use |
+| --- | --- | --- |
+| `mean_embedding_l2_distance/epoch` | Mean raw Euclidean distance | Compare checkpoints in one feature space; selects the best embedding checkpoint |
+| `mean_embedding_cosine_distance/epoch` | Mean `1 - cosine_similarity` | Compare embedding direction across extractors |
+| `mean_embedding_relative_l2_distance/epoch` | Mean L2 distance divided by the target-vector norm | Compare error relative to each target's magnitude |
+| `mean_embedding_reference_normalized_l2_distance/epoch` | Mean L2 distance divided by the mean distance between distinct validation targets | Compare error with the natural scale of each extractor |
+
+Lower values are better for all four metrics. Ordinary training does not
+calculate them: the callback is only present when the recipe explicitly has an
+`embedding_validation` block. The raw `mean_embedding_l2_distance` remains the
+checkpoint monitor for compatibility with existing runs.
 The first point is recorded after five completed epochs
 with the example configuration, then after epochs 10, 15, and so on. Lightning
 uses zero-based epoch labels, so these correspond to `epoch=4,9,14,...`.
@@ -192,16 +202,18 @@ At each evaluation, PRISMA:
 2. Generates one structure per target vector, retaining each reference's atom
    count and any other configured conditions. Sampling uses a fixed seed.
 3. Re-embeds generated structures with the frozen extractor.
-4. Logs the mean of the pairwise Euclidean distances between generated and
-   target raw embeddings. Lower values are better.
+4. Logs the raw and scale-independent distances listed above. The reference
+   scale is calculated once from all distinct pairs in the fixed target sample
+   and saved in `embedding_validation.json`.
 
 This is generation-based validation on a fixed subset; `loss/val` continues to
-measure the ordinary diffusion loss over the validation loader. The metric is
-not an extra training loss. Its absolute values are only comparable for the
-same feature space and evaluation settings; PET and MACE distances have
-different scales. Generation performs a full diffusion sampling run and adds
-work on evaluation epochs. In distributed training each rank evaluates the
-same sample with its local model and the scalar is synchronized.
+measure the ordinary diffusion loss over the validation loader. These metrics
+are not extra training losses. Raw L2 values are only comparable for the same
+feature space and evaluation settings; PET and MACE distances have different
+scales. Use the cosine, relative, or reference-normalized metric for
+cross-extractor plots. Generation performs a full diffusion sampling run and
+adds work on evaluation epochs. In distributed training each rank evaluates
+the same sample with its local model and the scalar is synchronized.
 
 The run directory contains:
 

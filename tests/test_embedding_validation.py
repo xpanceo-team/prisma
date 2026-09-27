@@ -14,8 +14,12 @@ from torch.utils.data import DataLoader, TensorDataset
 from prisma.training.training_utils import build_callbacks
 from prisma.training.configuration import TrainingRecipe, compose_training_config
 from prisma.training.embedding_validation import (
+    EMBEDDING_COSINE_METRIC,
     EmbeddingValidationCallback,
     EMBEDDING_METRIC,
+    EMBEDDING_REFERENCE_NORMALIZED_L2_METRIC,
+    EMBEDDING_RELATIVE_L2_METRIC,
+    _embedding_metrics,
 )
 
 
@@ -46,7 +50,7 @@ def datamodule():
             "atomic_numbers": [[14]] * 3,
             "frac_coords": [[[0, 0, 0]]] * 3,
             "num_atoms": [1] * 3,
-            "custom_vector": [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
+            "custom_vector": [[1.0, 0.0], [2.0, 0.0], [3.0, 0.0]],
         }
     )
     return SimpleNamespace(
@@ -166,7 +170,7 @@ def test_metric_reaches_logger_and_selects_checkpoint_only_on_evaluation_epochs(
     metric_records = [
         record[logged_name] for record in logger.records if logged_name in record
     ]
-    assert metric_records == pytest.approx([8.0, 4.0]), (
+    assert metric_records == pytest.approx([12.0, 6.0]), (
         logger.records,
         trainer.callback_metrics,
     )
@@ -175,13 +179,36 @@ def test_metric_reaches_logger_and_selects_checkpoint_only_on_evaluation_epochs(
         for cb in callbacks
         if isinstance(cb, ModelCheckpoint) and cb.monitor == EMBEDDING_METRIC
     )
-    assert checkpoint.best_model_score.item() == pytest.approx(4.0)
+    assert checkpoint.best_model_score.item() == pytest.approx(6.0)
     assert "epoch=03" in checkpoint.best_model_path
     restored = torch.load(
         checkpoint.best_model_path, weights_only=False, map_location="cpu"
     )
     assert restored["callbacks"][evaluation.state_key]["condition"] == "custom_vector"
     assert (tmp_path / "embedding_validation.json").is_file()
+
+    for name in (
+        EMBEDDING_COSINE_METRIC,
+        EMBEDDING_RELATIVE_L2_METRIC,
+        EMBEDDING_REFERENCE_NORMALIZED_L2_METRIC,
+    ):
+        assert sum(name + "/epoch" in record for record in logger.records) == 2
+
+
+def test_scale_independent_embedding_metrics():
+    targets = np.array([[1.0, 0.0], [0.0, 2.0]])
+    generated = np.array([[2.0, 0.0], [0.0, 1.0]])
+
+    metrics = _embedding_metrics(generated, targets, reference_l2_scale=np.sqrt(5))
+
+    assert metrics == pytest.approx(
+        {
+            EMBEDDING_METRIC: 1.0,
+            EMBEDDING_COSINE_METRIC: 0.0,
+            EMBEDDING_RELATIVE_L2_METRIC: 0.75,
+            EMBEDDING_REFERENCE_NORMALIZED_L2_METRIC: 1 / np.sqrt(5),
+        }
+    )
 
 
 def test_default_training_has_no_embedding_callback_or_checkpoint(tmp_path):
