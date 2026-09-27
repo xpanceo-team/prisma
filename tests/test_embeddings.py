@@ -117,6 +117,29 @@ def test_replace_column_preserves_rows_and_recomputes_embeddings(tmp_path):
     assert dataset["train"]["embedding"] == [[99.0, 99.0], [99.0, 99.0]]
 
 
+def test_mace_uses_hydrogen_for_historical_unsupported_species_policy():
+    from prisma.embeddings.mace import MACEEmbedder
+
+    class Calculator:
+        def __init__(self):
+            self.atomic_numbers = []
+
+        def get_descriptors(self, atoms, **kwargs):
+            self.atomic_numbers.append(atoms.numbers.tolist())
+            return np.array([[1.0, 3.0], [3.0, 5.0]])
+
+    embedder = object.__new__(MACEEmbedder)
+    embedder.device = "cpu"
+    embedder.dimension = None
+    embedder.calculator = Calculator()
+    structure = Structure(Lattice.cubic(4), ["Po", "Si"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+
+    result = embedder.encode([structure])
+
+    assert embedder.calculator.atomic_numbers == [[1, 14]]
+    assert result.tolist() == [[2.0, 4.0]]
+
+
 def test_embed_cli_materializes_training_filter_and_validation_split(
     tmp_path, monkeypatch
 ):

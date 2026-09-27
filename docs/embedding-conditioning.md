@@ -101,6 +101,10 @@ To recompute an existing embedding column with another extractor while keeping
 the saved rows and splits unchanged, use `--replace-column` and write to a new
 output directory.
 
+For compatibility with the project's earlier Atlas MACE embeddings,
+unsupported MACE species are represented as hydrogen during descriptor
+calculation; this policy is recorded in the output metadata.
+
 `data/materials-pet/prisma_metadata.json` records the checkpoint SHA-256,
 feature output, pooling, dimension and library versions per embedding column.
 Keep this file with the local dataset. Training checks it when present.
