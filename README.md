@@ -19,6 +19,22 @@ PRISMA supports iterative generation and validation campaigns:
 4. Validate selected structures with first-principles calculations.
 5. Incorporate validated structures and properties into subsequent training cycles.
 
+## Remote property prediction
+
+Use a container predictor directly from Python:
+
+```python
+from prisma import RemotePredictor
+
+predictor = RemotePredictor("http://127.0.0.1:18000")
+values = predictor.predict(structures, select="bandgap_pbe")
+```
+
+The caller supplies the URL and Pymatgen structures. Requests are chunked and
+completed predictions are cached so interrupted runs can continue. See
+[Property prediction](docs/property-prediction.md) for full outputs, tensor
+selection, cache controls and the HTTP contract.
+
 ## Installation
 
 PRISMA requires Python 3.11 or later. PyTorch and the compiled PyTorch

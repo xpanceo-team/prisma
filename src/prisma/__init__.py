@@ -16,6 +16,7 @@ warnings.filterwarnings(
 import prisma.utils.logging
 
 from prisma.configuration_utils import ConfigMixin
+from prisma.predictors import RemotePredictor
 from prisma.pipelines import DiffusionPipeline, MatterGenPipeline
 from prisma.models import (
     ModelMixin,
