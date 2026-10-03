@@ -4,6 +4,7 @@ saved_cif/
 *.pdf
 *.pkl
 *.pt
+!src/prisma/backbones/equiformer_v2/Jd.pt
 /*.ipynb
 wandb
 nohup*

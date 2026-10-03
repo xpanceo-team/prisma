@@ -37,12 +37,15 @@ selection, cache controls and the HTTP contract.
 
 ## Installation
 
-PRISMA requires Python 3.11 or later. PyTorch and the compiled PyTorch
-Geometric extensions must match the CUDA runtime available on the target
-system. Install those components first, then install PRISMA from the repository
-root:
+Use Python 3.11 or 3.12 for the installation profiles below. From the repository
+root, create and activate a virtual environment, then install the CPU profile:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+python -m pip install --only-binary=:all: torch-scatter==2.1.2 torch-sparse==0.6.18 \
+    -f https://data.pyg.org/whl/torch-2.6.0+cpu.html
 python -m pip install -e .
 ```
 
@@ -53,8 +56,8 @@ python -c "import prisma, torch; print(prisma.__version__); print(torch.cuda.is_
 python -m pip check
 ```
 
-Platform-specific PyTorch instructions and optional dependencies are covered in
-the [installation guide](docs/installation.md).
+For NVIDIA GPUs, `uv`, and optional dependencies, see the
+[installation guide](docs/installation.md).
 
 ## Fine-tuning on a custom dataset
 
