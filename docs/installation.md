@@ -143,3 +143,29 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 The CUDA version reported by PyTorch identifies the runtime used by the wheel;
 it does not need to be identical to the maximum CUDA version displayed by
 `nvidia-smi`, but the NVIDIA driver must support it.
+
+## Development
+
+After installing a CPU or GPU profile, install the development dependencies
+and run the tests:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest tests -q
+```
+
+With uv, use `uv pip install -e ".[dev]"`. The development extra includes
+ASE for the structure conversion exercised by the embedding tests.
+
+## Continuous integration
+
+The GitHub Actions workflow in `.github/workflows/tests.yml` runs on pushes,
+pull requests, and manual dispatches. It builds a source distribution and a
+wheel from that distribution, installs the CPU profile with pip and uv on
+Python 3.11 and 3.12, checks dependencies, and runs the test suite against the
+installed wheel. The installation tests check bundled assets, native PyG
+operations, and the `prisma` command.
+
+Jobs use GitHub-hosted Ubuntu runners. After the workflow is pushed to GitHub,
+results appear in the repository's **Actions** tab and on pull requests.
+GPU execution and optional model dependencies are outside this CPU workflow.

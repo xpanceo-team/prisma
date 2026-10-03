@@ -1,0 +1,67 @@
+name: Installation and tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu:
+    name: Python ${{ matrix.python }} / ${{ matrix.installer }} / CPU
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+        installer: [pip, uv]
+    env:
+      HF_HUB_OFFLINE: '1'
+      HF_DATASETS_OFFLINE: '1'
+      WANDB_MODE: disabled
+      MPLBACKEND: Agg
+      INSTALLER: ${{ matrix.installer }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Build wheel from source distribution
+        run: |
+          python -m pip install build uv
+          python -m build
+      - name: Install CPU profile and wheel
+        shell: bash
+        run: |
+          install() {
+            if [ "$INSTALLER" = uv ]; then
+              uv pip install --python "$(command -v python)" "$@"
+            else
+              python -m pip install "$@"
+            fi
+          }
+          install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          install --only-binary=:all: torch-scatter==2.1.2 torch-sparse==0.6.18 \
+            -f https://data.pyg.org/whl/torch-2.6.0+cpu.html
+          wheels=(dist/*.whl)
+          install "${wheels[0]}[dev]"
+      - name: Check installed dependencies
+        run: |
+          if [ "$INSTALLER" = uv ]; then
+            uv pip check --python "$(command -v python)"
+          else
+            python -m pip check
+          fi
+      - name: Run CPU tests against installed package
+        run: python -m pytest tests -q
