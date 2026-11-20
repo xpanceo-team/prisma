@@ -1,80 +1,60 @@
 # PRISMA
 
-PRISMA is a modular closed-loop framework for crystal generation,
-machine-learning screening, and DFT validation of AI-designed materials.
-
-It integrates diffusion-based generative modeling, fast ML screening, and
-automated first-principles validation into a unified workflow for computational
-materials discovery. The framework supports foundation-model training,
-property-conditioned fine-tuning, crystal generation, candidate screening, and
-VASP validation on SLURM-managed systems.
-
-## Workflow
-
-PRISMA supports iterative generation and validation campaigns:
-
-1. Train or initialize a diffusion model for crystalline materials.
-2. Fine-tune the model on property-labeled structures for conditional generation.
-3. Generate candidates and screen them for stability, novelty, uniqueness, and target properties.
-4. Validate selected structures with first-principles calculations.
-5. Incorporate validated structures and properties into subsequent training cycles.
-
-## Remote property prediction
-
-Use a container predictor directly from Python:
-
-```python
-from prisma import RemotePredictor
-
-predictor = RemotePredictor("http://127.0.0.1:18000")
-values = predictor.predict(structures, select="bandgap_pbe")
-```
-
-The caller supplies the URL and Pymatgen structures. Requests are chunked and
-completed predictions are cached so interrupted runs can continue. See
-[Property prediction](docs/property-prediction.md) for full outputs, tensor
-selection, cache controls and the HTTP contract.
+PRISMA is a framework for training diffusion models and using them to generate
+crystal structures. It includes tools to screen candidate structures for
+stability and target properties and to validate selected candidates with VASP.
 
 ## Installation
 
-Use Python 3.11 or 3.12 for the installation profiles below. From the repository
-root, create and activate a virtual environment, then install the CPU profile:
+The installation guide covers Linux x86_64 with Python 3.11 or 3.12.
+Choose the profile for your machine:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install --only-binary=:all: torch-scatter==2.1.2 torch-sparse==0.6.18 \
-    -f https://data.pyg.org/whl/torch-2.6.0+cpu.html
-python -m pip install -e .
+- [NVIDIA GPU (CUDA 12.4)](docs/installation.md#nvidia-gpu-cuda-124) for the training example below.
+- [CPU](docs/installation.md#cpu) for machines without an NVIDIA GPU.
+
+After installation, run `prisma --help` to see the available commands.
+
+## Generate a crystal
+
+Load a pretrained MatterGen model, generate one structure with the requested
+composition and energy above hull, and save it to `candidate.cif`.
+
+```python
+import torch
+from prisma.pipelines.mattergen import MatterGenPipeline
+
+pipeline = MatterGenPipeline.from_pretrained(
+    "xpanceo-team/mattergen-formula-e_above_hull",
+    use_safetensors=False,
+)
+
+structures = pipeline(
+    batch_size=1,
+    condition={
+        "formula": ["Na3 Mn1 Co1 Ni1 O6"],
+        "e_above_hull": torch.tensor([0.043]),
+    },
+    guidance_scale=3.0,
+    device="cuda" if torch.cuda.is_available() else "cpu",
+)
+structures[0].to(filename="candidate.cif")
 ```
-
-Verify the installation:
-
-```bash
-python -c "import prisma, torch; print(prisma.__version__); print(torch.cuda.is_available())"
-python -m pip check
-```
-
-For NVIDIA GPUs, `uv`, and optional dependencies, see the
-[installation guide](docs/installation.md).
 
 ## Fine-tuning on a custom dataset
 
-The quickest path to a property-conditioned model is to fine-tune the
-pretrained MatterGen base model on a dataset of structures and target
-properties. This section follows that workflow from a local table to generation
-with the resulting model.
+To fine-tune MatterGen on your own data, start with a table of crystal structures
+and their target properties. The example below uses two property columns
+(`dn` and `k_1064`). Use the same column names in your training configuration.
 
 ### 1. Prepare the dataset
 
 Create a Parquet table with one row per material. It must contain a `structure`
 column and one numeric column for each conditioning property:
 
-| material_id | structure | bandgap_hse | shg | dn |
-| --- | --- | ---: | ---: | ---: |
-| material-001 | pymatgen JSON or CIF text | 3.4 | 1.8 | 0.12 |
-| material-002 | pymatgen JSON or CIF text | 4.1 | 2.3 | 0.08 |
+| material_id | structure | dn | k_1064 |
+| --- | --- | ---: | ---: |
+| material-001 | pymatgen JSON or CIF text | 0.12 | 0.001 |
+| material-002 | pymatgen JSON or CIF text | 0.08 | 0.002 |
 
 Normalize the table and create a reproducible validation split:
 
@@ -96,49 +76,29 @@ PRISMA also accepts CSV, JSON, JSONL, and existing Hugging Face datasets. See
 
 ### 2. Configure conditional fine-tuning
 
-Copy [the local conditional example](examples/training/local_conditional.yaml)
-and replace the condition names with the property columns in your dataset:
+Copy [the example configuration](examples/training/local_conditional.yaml):
 
 ```bash
 cp examples/training/local_conditional.yaml local_conditional.yaml
 ```
 
+Set the dataset path and conditioning properties in your copy:
+
 ```yaml
-name: my-materials
 dataset_name_or_path: data/materials
 
-model:
-  backbone: gemnet
-  pretrained_model_name_or_path: xpanceo-team/mattergen-base
-
 conditions:
-  bandgap_hse:
-    type: scalar
-  shg:
-    type: scalar
   dn:
     type: scalar
-
-data:
-  max_num_atoms: 20
-
-training:
-  max_epochs: 800
-  batch_size: 32
-  gradient_accumulation: 2
-  learning_rate: 1.0e-4
-
-output_dir: runs/my-materials
+  k_1064:
+    type: scalar
 ```
 
-Condition names must exactly match dataset columns. Scalar conditions are
-standardized from the training split and encoded with the model's scalar
-condition adapters. Structures containing more than `max_num_atoms` are
-filtered before the train/validation split is used.
+Use the property column names from your dataset as keys under `conditions`.
 
 ### 3. Check and start training
 
-Inspect the resolved configuration without loading model weights:
+Check the dataset path, condition names, and training settings:
 
 ```bash
 prisma train local_conditional.yaml --print-config
@@ -150,92 +110,29 @@ Start training:
 prisma train local_conditional.yaml
 ```
 
-Before creating the run, PRISMA executes one representative training step with
-the configured model, device, precision, and optimizer. If it runs out of GPU
-memory, lower `training.batch_size` and increase
-`training.gradient_accumulation` to preserve the effective batch size.
+The example configuration saves checkpoints in `runs/my-materials/`. See
+[Training](docs/training.md) to resume an interrupted run.
 
-New condition encoder and adapter weights are expected when a base checkpoint
-is fine-tuned on properties it did not previously contain. The remaining model
-weights are loaded from `xpanceo-team/mattergen-base`.
+### 4. Generate with the fine-tuned model
 
-Resume an interrupted run by adding its Lightning checkpoint to the same
-configuration:
-
-```yaml
-training:
-  resume_from_checkpoint: runs/my-materials/epoch=07-step=0128-last.ckpt
-```
-
-Use the most recent `*-last.ckpt` file in the run directory. Its epoch and step
-numbers depend on the run.
-
-See [Training](docs/training.md) for checkpointing, experiment logging,
-backbone selection, and configuration details.
-
-### 4. Export and use the trained model
-
-Select the checkpoint to use for generation, reconstruct its components, and
-save them as a reusable pipeline:
-
-```python
-from pathlib import Path
-
-from prisma.pipelines.mattergen import MatterGenPipeline
-from prisma.training.module import TrainingModule
-
-
-checkpoint = next(Path("runs/my-materials").glob("*-best=loss.ckpt"))
-module = TrainingModule.load_from_checkpoint(
-    checkpoint,
-    map_location="cpu",
-)
-pipeline = MatterGenPipeline(
-    gnn=module.gnn,
-    condition_encoder=module.cond_encoder,
-    score_model=module.score_model,
-    atomic_numbers_scheduler=module.atomic_numbers_scheduler,
-    frac_coords_scheduler=module.frac_coords_scheduler,
-    cell_scheduler=module.cell_scheduler,
-)
-pipeline.save_pretrained(
-    "runs/my-materials/pipeline",
-    safe_serialization=False,
-)
-```
-
-Generate structures with the properties used during fine-tuning:
+Follow [Generation and checkpoint export](docs/generation.md#export-a-training-checkpoint)
+to export the `*-best=loss.ckpt` checkpoint from `runs/my-materials/` and load
+the resulting pipeline. To generate one structure, pass `dn` and `k_1064` in
+the same units as the training data.
 
 ```python
 import torch
 
-from prisma.pipelines.mattergen import MatterGenPipeline
-
-
-pipeline = MatterGenPipeline.from_pretrained(
-    "runs/my-materials/pipeline",
-    use_safetensors=False,
-)
-
-device = "cuda"
-condition = {
-    "bandgap_hse": torch.tensor([3.5, 4.0]),
-    "shg": torch.tensor([2.0, 2.5]),
-    "dn": torch.tensor([0.10, 0.15]),
-}
-
 structures = pipeline(
-    batch_size=2,
-    condition=condition,
-    guidance_scale=3.0,
-    device=device,
-    generator=torch.Generator(device=device).manual_seed(42),
+    batch_size=1,
+    condition={
+        "dn": torch.tensor([0.10]),
+        "k_1064": torch.tensor([0.001]),
+    },
+    device="cuda" if torch.cuda.is_available() else "cpu",
 )
+structures[0].to(filename="candidate.cif")
 ```
-
-The condition values supplied for generation are in the original dataset
-units. See [Generation](docs/generation.md) for loading published pipelines and
-publishing the exported model.
 
 ## Documentation
 
@@ -246,6 +143,12 @@ publishing the exported model.
 - [Generation and checkpoint export](docs/generation.md)
 - [DFT/VASP validation](docs/dft.md)
 
+## Data and models
+
+The generated structures, curated datasets, trained model checkpoints, and
+validation datasets used in the study are available on
+[Hugging Face](https://huggingface.co/xpanceo-team).
+
 ## License
 
-PRISMA is licensed under the MIT License.
+PRISMA is licensed under the [MIT License](LICENSE).

@@ -6,11 +6,9 @@ model:
   pretrained_model_name_or_path: xpanceo-team/mattergen-base
 
 conditions:
-  bandgap_hse:
-    type: scalar
-  shg:
-    type: scalar
   dn:
+    type: scalar
+  k_1064:
     type: scalar
 
 data:
